@@ -19,7 +19,7 @@ const ACCOUNT = { //账号相关，安全性更高
 const OPT = { //网站配置
 
   /*--前台参数--*/
-  "siteDomain" : "blog.cuger.nyc.mn",// 域名(不带https 也不带/)
+  "siteDomain" : "example.com",// 域名(不带https 也不带/)
   "siteName" : "CFBLOG-Plus",//博客名称
   "siteDescription":"CFBLOG-Plus" ,//博客描述
   "keyWords":"cloudflare,KV,workers,blog",//关键字
