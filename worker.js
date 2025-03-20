@@ -2,30 +2,24 @@
 
 'use strict';
 
-// 环境变量处理 
-const ENV = {
-  BLOG_USER: typeof BLOG_USER !== 'undefined' ? BLOG_USER : undefined,
-  BLOG_PASSWORD: typeof BLOG_PASSWORD !== 'undefined' ? BLOG_PASSWORD : undefined,
-  BLOG_THIRD_TOKEN: typeof BLOG_THIRD_TOKEN !== 'undefined' ? BLOG_THIRD_TOKEN : undefined,
-  BLOG_CACHE_ZONE_ID: typeof BLOG_CACHE_ZONE_ID !== 'undefined' ? BLOG_CACHE_ZONE_ID : undefined,
-  BLOG_CACHE_TOKEN: typeof BLOG_CACHE_TOKEN !== 'undefined' ? BLOG_CACHE_TOKEN : undefined,
-};
+// Cloudflare Workers 环境变量声明
+let USER = "", PASSWORD = "", THIRD_TOKEN = "", CACHE_ZONE_ID = "", CACHE_TOKEN = "";
 
+// 我们将在请求处理函数中加载环境变量
 const ACCOUNT = { //账号相关，安全性更高
-  "user" : ENV.BLOG_USER, // 直接使用环境变量，无默认值
-  "password" : ENV.BLOG_PASSWORD, // 直接使用环境变量，无默认值
-  "third_token" : ENV.BLOG_THIRD_TOKEN, // 直接使用环境变量，无默认值
-  "cacheZoneId": ENV.BLOG_CACHE_ZONE_ID,
-  "cacheToken": ENV.BLOG_CACHE_TOKEN,
-  
-  "kv_var": this['CFBLOG'], // KV绑定保持不变
-  "login_expire" : 86400, // 登录过期时间(秒)，默认24小时，使用硬编码值
+  "user" : "", // 将在请求处理时动态获取
+  "password" : "", // 将在请求处理时动态获取
+  "third_token" : "", // 将在请求处理时动态获取
+  "cacheZoneId": "", // 将在请求处理时动态获取
+  "cacheToken": "", // 将在请求处理时动态获取
+
+  "kv_var": this['CFBLOG'],//workers绑定kv时用的变量名
 }
 
 const OPT = { //网站配置
 
   /*--前台参数--*/
-  "siteDomain" : "你的域名",// 域名(不带https 也不带/)
+  "siteDomain" : "blog.cuger.nyc.mn",// 域名(不带https 也不带/)
   "siteName" : "CFBLOG-Plus",//博客名称
   "siteDescription":"CFBLOG-Plus" ,//博客描述
   "keyWords":"cloudflare,KV,workers,blog",//关键字
@@ -44,185 +38,141 @@ const OPT = { //网站配置
   "html404" : `<b>404</b>`,//404页面代码
   "codeBeforHead":`
   <script src="https://cdn.staticfile.org/jquery/2.2.4/jquery.min.js"></script>
+  <style>
+  /* 优化后的复制按钮样式 */
+  .copy-button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    padding: 5px 10px;
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #666;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s;
+    opacity: 0;
+    z-index: 10;
+  }
+
+  pre:hover .copy-button {
+    opacity: 1;
+  }
+
+  .copy-button:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: #333;
+  }
+
+  .copy-button.success {
+    background-color: #28a745;
+    color: white;
+  }
+
+  .copy-button.error {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  pre {
+    position: relative;
+    overflow: auto;
+    padding: 16px;
+    border-radius: 4px;
+  }
+
+  pre code {
+    display: block;
+    overflow-x: auto;
+    padding: 0;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  }
+  </style>
   `,//其他代码,显示在</head>前
   "codeBeforBody":`
-  <style>
-    /* 代码复制按钮样式 - 优化版 */
-    pre {
-      position: relative;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    
-    .copy-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 3px 8px;
-      font-size: 12px;
-      color: #fff;
-      background-color: rgba(0, 0, 0, 0.5);
-      border: none;
-      border-radius: 4px;
-      opacity: 0;
-      transition: all 0.2s ease;
-      cursor: pointer;
-      z-index: 100;
-    }
-    
-    pre:hover .copy-btn {
-      opacity: 1;
-    }
-    
-    .copy-btn:hover {
-      background-color: rgba(0, 0, 0, 0.8);
-    }
-    
-    .copy-btn:active {
-      transform: scale(0.95);
-    }
-    
-    .copy-btn.success {
-      background-color: #28a745;
-    }
-    
-    /* 添加代码语言标识 */
-    .code-language {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      font-size: 12px;
-      color: #fff;
-      background-color: rgba(0, 0, 0, 0.5);
-      padding: 2px 6px;
-      border-radius: 3px;
-    }
-  </style>
-  
   <script>
-  /**
-   * 高级代码复制功能
-   * - 事件委托优化性能
-   * - 语言标识显示
-   * - 智能复制（去除行号）
-   * - 键盘快捷键支持
-   */
   document.addEventListener('DOMContentLoaded', function() {
-    // 使用事件委托，只添加一个事件监听器
-    document.body.addEventListener('click', function(e) {
-      if (e.target.classList.contains('copy-btn')) {
-        const btn = e.target;
-        const pre = btn.closest('pre');
-        if (!pre) return;
-        
-        // 获取代码内容，智能处理多种情况
-        let code;
-        const codeElement = pre.querySelector('code');
-        if (codeElement) {
-          // 如果有 code 元素，从它获取内容
-          code = codeElement.innerText || codeElement.textContent;
-        } else {
-          // 否则直接从 pre 获取
-          code = pre.innerText || pre.textContent;
-        }
-        
-        // 复制到剪贴板
-        navigator.clipboard.writeText(code)
-          .then(() => {
-            // 成功反馈
-            btn.textContent = '已复制!';
-            btn.classList.add('success');
-            
-            // 恢复原状
-            setTimeout(() => {
-              btn.textContent = '复制';
-              btn.classList.remove('success');
-            }, 2000);
-          })
-          .catch(err => {
-            // 失败处理
-            console.error('复制失败:', err);
-            btn.textContent = '复制失败';
-            
-            setTimeout(() => {
-              btn.textContent = '复制';
-            }, 2000);
-          });
-      }
-    });
-
-    // 初始化所有代码块
-    initCodeBlocks();
+    // 为所有代码块添加复制按钮
+    const codeBlocks = document.querySelectorAll('pre code');
     
-    // 添加键盘快捷键支持 (Alt+C)
-    document.addEventListener('keydown', function(e) {
-      if (e.altKey && e.key === 'c') {
-        const hoveredPre = document.querySelector('pre:hover');
-        if (hoveredPre) {
-          const copyBtn = hoveredPre.querySelector('.copy-btn');
-          if (copyBtn) copyBtn.click();
-        }
-      }
-    });
-    
-    // 支持动态加载的内容
-    const observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-          // 检查是否有新的代码块被添加
-          let hasNewCodeBlocks = false;
-          mutation.addedNodes.forEach(function(node) {
-            if (node.nodeName === 'PRE' || node.querySelector && node.querySelector('pre')) {
-              hasNewCodeBlocks = true;
-            }
-          });
-          
-          if (hasNewCodeBlocks) {
-            initCodeBlocks();
-          }
-        }
-      });
-    });
-    
-    // 监视文档变化，支持动态内容
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    // 初始化所有代码块
-    function initCodeBlocks() {
-      const codeBlocks = document.querySelectorAll('pre:not([data-copy-initialized])');
-      
-      codeBlocks.forEach(function(pre) {
-        // 标记为已初始化，避免重复处理
-        pre.setAttribute('data-copy-initialized', 'true');
-        
+    if (codeBlocks.length > 0) {
+      codeBlocks.forEach(function(codeBlock, index) {
         // 创建复制按钮
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'copy-btn';
-        copyBtn.textContent = '复制';
-        copyBtn.title = '复制代码 (Alt+C)';
-        pre.appendChild(copyBtn);
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.setAttribute('aria-label', '复制代码');
+        copyButton.innerHTML = '<span>复制</span>';
         
-        // 判断代码语言
-        const codeElement = pre.querySelector('code');
-        if (codeElement) {
-          const classNames = Array.from(codeElement.classList);
-          for (const cls of classNames) {
-            if (cls.startsWith('language-') || cls.startsWith('lang-')) {
-              const lang = cls.replace('language-', '').replace('lang-', '');
-              if (lang && lang !== 'undefined') {
-                // 添加语言标识
-                const langLabel = document.createElement('span');
-                langLabel.className = 'code-language';
-                langLabel.textContent = lang;
-                pre.appendChild(langLabel);
-                break;
+        // 为了防止多个代码块id冲突，添加唯一id
+        const preElement = codeBlock.parentNode;
+        preElement.id = 'code-block-' + index;
+        
+        // 添加按钮到pre元素
+        preElement.appendChild(copyButton);
+        
+        // 添加点击事件处理
+        copyButton.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // 获取代码内容，过滤掉行号等非代码内容
+          let code = codeBlock.textContent || '';
+          
+          // 复制到剪贴板
+          const copyText = async () => {
+            try {
+              await navigator.clipboard.writeText(code);
+              
+              // 修改按钮样式和文本表示复制成功
+              copyButton.classList.add('success');
+              copyButton.innerHTML = '<span>已复制!</span>';
+              
+              // 2秒后恢复原样
+              setTimeout(() => {
+                copyButton.classList.remove('success');
+                copyButton.innerHTML = '<span>复制</span>';
+              }, 2000);
+            } catch (err) {
+              console.error('复制失败:', err);
+              
+              // 处理复制失败情况
+              copyButton.classList.add('error');
+              copyButton.innerHTML = '<span>复制失败</span>';
+              
+              // 2秒后恢复原样
+              setTimeout(() => {
+                copyButton.classList.remove('error');
+                copyButton.innerHTML = '<span>复制</span>';
+              }, 2000);
+              
+              // 兼容性备用方案
+              const textarea = document.createElement('textarea');
+              textarea.value = code;
+              textarea.style.position = 'fixed';
+              textarea.style.opacity = '0';
+              document.body.appendChild(textarea);
+              textarea.select();
+              
+              try {
+                document.execCommand('copy');
+                copyButton.classList.remove('error');
+                copyButton.classList.add('success');
+                copyButton.innerHTML = '<span>已复制!</span>';
+              } catch (e) {
+                copyButton.innerHTML = '<span>请手动复制</span>';
               }
+              
+              document.body.removeChild(textarea);
+              
+              setTimeout(() => {
+                copyButton.classList.remove('success', 'error');
+                copyButton.innerHTML = '<span>复制</span>';
+              }, 2000);
             }
-          }
-        }
+          };
+          
+          copyText();
+        });
       });
     }
   });
@@ -241,7 +191,7 @@ const OPT = { //网站配置
   "otherCodeC":``,//
   "otherCodeD":``,//
   "otherCodeE":``,//
-  "copyRight" :`Powered by <a href="https://www.cloudflare.com">Cloudflare</a>`,//自定义版权信息,建议保留大公无私的 Coudflare 和 作者 的链接
+  "copyRight" :`Powered by <a href="https://www.cloudflare.com">Cloudflare</a> & <a href="https://blog.arrontg.cf">CFBlog-Plus</a> & <a href="https://blog.gezhong.vip">CF-Blog </a>`,//自定义版权信息,建议保留大公无私的 Coudflare 和 作者 的链接
   "robots":`User-agent: *
 Disallow: /admin`,//robots.txt设置
   
@@ -277,6 +227,7 @@ Disallow: /admin`,//robots.txt设置
       $("#top_timestamp").val(articleJson.top_timestamp?articleJson.top_timestamp:0);
     }
     $("#istop").trigger('change')
+    
     //隐藏设置
     let hidden_setting=\`
       <div class="form-group">
@@ -289,64 +240,58 @@ Disallow: /admin`,//robots.txt设置
     $('form#addNewForm div.form-group,form#editForm div.form-group').last().after(hidden_setting);//新建和编辑页面添加隐藏设置
     if(location.pathname.startsWith('/admin/edit')){//修改文章页面，自动设置隐藏
       $("#hidden").val(articleJson.hidden?1:0);
+      
+      // 只在编辑页面添加删除按钮
+      let delete_btn = $('<button type="button" class="btn btn-danger" style="margin-left:10px;">删除文章</button>');
+      $('.btn-primary').after(delete_btn);
+      
+      // 添加删除功能
+      delete_btn.click(function(e) {
+        e.preventDefault();
+        if(confirm('确定要删除这篇文章吗？此操作不可恢复！')) {
+          $(this).prop('disabled', true).text('删除中...');
+          
+          fetch('/admin/delete/' + articleJson.id, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          })
+          .then(response => response.json())
+          .then(data => {
+            if(data.status === 'success') {
+              alert('文章删除成功！');
+              // 修改这里：跳转到文章列表标签页
+              window.location.replace('/admin/#list');
+            } else {
+              alert('删除失败：' + (data.message || '未知错误'));
+              $(this).prop('disabled', false).text('删除文章');
+            }
+          })
+          .catch(error => {
+            console.error('删除文章时出错:', error);
+            alert('删除文章时出错，请查看控制台');
+            $(this).prop('disabled', false).text('删除文章');
+          });
+        }
+      });
     }
+    
     let sitemapxml=\`<a  tabindex="0"  role="button"  type="submit" id="btn_export" class="btn btn-default"  href="/admin/sitemap.xml" >导出sitemap.xml</a>\`
     $('form#importForm a').last().after(sitemapxml);//设置页面添加导出sitemap.xml导出按钮
     let searchxml=\`<a  tabindex="0"  role="button"  type="submit" id="btn_export" class="btn btn-default"  href="/admin/search.xml" >导出search.xml</a>\`
     $('form#importForm a').last().after(searchxml);//设置页面添加导出search.xml导出按钮
     
-    try {
-      //确保编辑器已初始化
-      if (typeof mdEditor !== 'undefined') {
-        //关闭email匹配和@匹配，否则图片使用jsdelivr的cdn，如果有版本号会匹配成"mailto:xxx"从而导致显示异常
-        mdEditor.settings.emailLink=false;
-        mdEditor.settings.atLink=false;
-        
-        //mdEditor.settings.toc=false
-        //mdEditor.settings.tocm=true  // Using [TOCM]
-        //mdEditor.settings.tocContainer="#custom-toc-container" // 自定义 ToC 容器层
-        //mdEditor.settings.gfm=false
-        //mdEditor.settings.tocDropdown=true
-        //mdEditor.settings.markdownSourceCode=true // 是否保留 Markdown 源码，即是否删除保存源码的 Textarea 标签
-        mdEditor.settings.emoji=true
-        mdEditor.settings.taskList=true;// 默认不解析
-        mdEditor.settings.tex=true;// 默认不解析
-        mdEditor.settings.flowChart=true; // 默认不解析
-        mdEditor.settings.sequenceDiagram=true;// 默认不解析
-        
-        //开启全局html标签解析-不推荐
-        //mdEditor.settings.htmlDecode=true;
-        
-        window.mdEditor=mdEditor;    
-        //editormd工具栏上添加html标签解析开关
-        mdEditor.getToolbarHandles().parseHtml=function(){
-          let ele = $(".editormd-menu li a i:last");
-          if(ele.hasClass('fa-toggle-off')){
-            ele.removeClass('fa-toggle-off').addClass('fa-toggle-on');
-            mdEditor.settings.htmlDecode = true;
-          }else if(ele.hasClass('fa-toggle-on')){
-            ele.removeClass('fa-toggle-on').addClass('fa-toggle-off')
-            mdEditor.settings.htmlDecode = false;
-          }
-          mdEditor.setMarkdown(mdEditor.getMarkdown());
-        }
-        
-        setTimeout(function(){
-          $(".editormd-menu").append('<li class="divider" unselectable="on">|</li><li><a href="javascript:;" title="解析HTML标签" unselectable="on"><i class="fa fa-toggle-off" name="parseHtml" unselectable="on"> 解析HTML标签 </i></a></li>')
-          mdEditor.setToolbarHandler(mdEditor.getToolbarHandles())
-        },300)
-      } else {
-        console.error("mdEditor 未定义！");
-      }
-    } catch(e) {
-      console.error("初始化编辑器失败:", e);
-    }
-    
+    //关闭email匹配和@匹配，否则图片使用jsdelivr的cdn，如果有版本号会匹配成"mailto:xxx"从而导致显示异常
+    mdEditor.settings.emailLink=false;
+    mdEditor.settings.atLink=false;
+
     //默认图片，工具：https://tool.lu/imageholder/
     if($('#img').val()=="")$('#img').val('https://cdn.jsdelivr.net/gh/Arronlong/cdn@master/cfblog/cfblog-plus.png');
     //默认时间设置为当前时间
     if($('#createDate').val()=="")$('#createDate').val(new Date(new Date().getTime()+8*60*60*1000).toJSON().substr(0,16));
-  `, //后台编辑页面脚本
+`, //后台编辑页面脚本
 
 };
 
@@ -375,160 +320,134 @@ Disallow: /admin`,//robots.txt设置
 /**------【②.猎杀时刻：请求处理入口】-----**/
 
 //监听请求
-addEventListener("fetch",event=>{
-  //处理请求
-  event.respondWith(handlerRequest(event))
-})
+addEventListener("fetch", event => {
+  // 从环境变量加载敏感配置
+  loadEnvVariables();
+  
+  // 处理请求
+  event.respondWith(handlerRequest(event));
+});
+
+// 从环境变量加载配置
+function loadEnvVariables() {
+  try {
+    // 在Cloudflare Workers中，环境变量可以直接访问
+    ACCOUNT.user = BLOG_USER || "";
+    ACCOUNT.password = BLOG_PASSWORD || "";
+    ACCOUNT.third_token = BLOG_THIRD_TOKEN || "";
+    ACCOUNT.cacheZoneId = BLOG_CACHE_ZONE_ID || "";
+    ACCOUNT.cacheToken = BLOG_CACHE_TOKEN || "";
+    
+    console.log("环境变量加载成功");
+  } catch (e) {
+    console.error("环境变量加载失败", e);
+  }
+}
 
 // 处理请求
 async function handlerRequest(event){
-  try { // 添加全局错误捕获
-    let request = event.request
-    //获取url请求对象
-    let url=new URL(request.url)
-    let paths=url.pathname.trim("/").split("/")
+  let request = event.request
+  //获取url请求对象
+  let url = new URL(request.url)
+  let paths = url.pathname.trim("/").split("/")
 
-    // 处理登录页面请求
-    if(paths[0] == "admin" && paths[1] == "login") {
-      if(request.method === "POST") {
-        try {
-          // 解析POST数据
-          const data = await request.json();
-          const { username, password } = data;
+  // 处理登录页面请求
+  if (paths[0] === "login") {
+    return await handle_login(request);
+  }
 
-          // 验证用户名和密码
-          if (username === ACCOUNT.user && password === ACCOUNT.password) {
-            // 设置会话cookie，不使用JWT，简单化实现
-            return new Response(JSON.stringify({ success: true }), {
-              headers: {
-                "content-type": "application/json;charset=UTF-8",
-                "Set-Cookie": `cfblog_auth=true; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`
-              },
-              status: 200
-            });
-          } else {
-            return new Response(JSON.stringify({ success: false, message: "用户名或密码错误" }), {
-              headers: {
-                "content-type": "application/json;charset=UTF-8"
-              },
-              status: 401
-            });
-          }
-        } catch (error) {
-          return new Response(JSON.stringify({ success: false, message: "请求格式错误" }), {
-            headers: {
-              "content-type": "application/json;charset=UTF-8"
-            },
-            status: 400
-          });
-        }
-      } else {
-        // 显示登录页面
-        return new Response(getLoginPageHtml(), {
-          headers: {
-            "content-type": "text/html;charset=UTF-8"
-          },
-          status: 200
-        });
+  // 修改校验权限的逻辑
+  if (("admin" == paths[0] || true === OPT.privateBlog)) {
+    // 检查cookie中的auth令牌
+    const cookies = request.headers.get('Cookie') || '';
+    let authToken = '';
+    
+    cookies.split(';').forEach(cookie => {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'auth') {
+        authToken = value;
       }
-    }
-
-    // 处理登出请求
-    if(paths[0] == "admin" && paths[1] == "logout") {
-      return new Response("登出成功", {
-        headers: {
-          "Set-Cookie": "cfblog_auth=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
-          "Location": `/admin/login`
-        },
-        status: 302
+    });
+    
+    // 如果有auth令牌，添加到请求头
+    if (authToken) {
+      const newHeaders = new Headers(request.headers);
+      newHeaders.set('Authorization', 'Basic ' + authToken);
+      request = new Request(request.url, {
+        method: request.method,
+        headers: newHeaders,
+        body: request.body
       });
     }
-
-    // 权限检查 - 避免使用可选链运算符
-    if(("admin"==paths[0] && paths[1] != "login") || true===OPT.privateBlog) {
-      // 简单检查cookie
-      let cookieStr = request.headers.get('Cookie') || '';
-      const isAuthed = cookieStr.includes('cfblog_auth=true') || parseBasicAuth(request);
-      
-      if(!isAuthed) {
-        if(paths[0] == "admin") {
-          return Response.redirect(`https://${OPT.siteDomain}/admin/login`, 302);
-        }
-        return new Response("Unauthorized", {
-          headers: {
-            "WWW-Authenticate": 'Basic realm="cfblog"',
-            "Access-Control-Allow-Origin": "*"
-          },
-          status: 401
-        });
-      }
-    }
-
-    //组装请求url，查看是否有缓存
-    const D=caches.default,
-        M="https://"+OPT.siteDomain+url.pathname,
-        x=new Request(M, request);
-    console.log("cacheFullPath:",M);
-    let k=await D.match(x);
-    if(k){
-      console.log("hit cache!")
-      return k;
-    }
-
-    switch(paths[0]){
-      case "favicon.ico": //图标
-        k = await handle_favicon(request);
-        break;
-      case "robots.txt":
-        k = await handle_robots(request);
-        break;
-      case "sitemap.xml":
-        k = await handle_sitemap(request);
-        break;
-      case "search.xml":
-        k = await handle_search(request);
-        break;
-      case "admin": //后台
-        k = await handle_admin(request);
-        break;
-      case "article": //文章内容页
-        k = await handle_article(paths[1]);
-        break;
-      case "": //文章 首页
-      case "page": //文章 分页
-      case "category": //分类 分页
-      case "tags": //标签 分页
-        k = await renderBlog(url);
-        break;
-      default:
-        //其他页面返回404
-        k= new Response(OPT.html404,{
-          headers:{
-            "content-type":"text/html;charset=UTF-8"
-          },
-          status:200
-        })
-        break;
-    }  
-    //设置浏览器缓存时间:后台不缓存、只缓存前台
-    try{
-      if("admin"==paths[0]){
-        k.headers.set("Cache-Control","no-store")
-      }else{
-        k.headers.set("Cache-Control","public, max-age="+OPT.cacheTime),
-        event.waitUntil(D.put(M,k.clone()))
-      }
-    }catch(e){}
     
-    return k
-  } catch (error) {
-    // 全局错误处理
-    console.error("Worker异常:", error);
-    return new Response(`Error: ${error.message}`, {
-      status: 500,
-      headers: { "Content-Type": "text/plain" }
-    });
+    // 如果认证失败，重定向到登录页
+    if (!parseBasicAuth(request)) {
+      return new Response("Redirecting to login...", {
+        status: 302,
+        headers: {
+          "Location": "/login"
+        }
+      });
+    }
   }
+
+  //组装请求url，查看是否有缓存
+  const D=caches.default,
+      M="https://"+OPT.siteDomain+url.pathname,
+      x=new Request(M, request);
+  console.log("cacheFullPath:",M);
+  let k=await D.match(x);
+  if(k){
+    console.log("hit cache!")
+    return k;
+  }
+
+  switch(paths[0]){
+    case "favicon.ico": //图标
+      k = await handle_favicon(request);
+      break;
+    case "robots.txt":
+      k = await handle_robots(request);
+      break;
+    case "sitemap.xml":
+      k = await handle_sitemap(request);
+      break;
+    case "search.xml":
+      k = await handle_search(request);
+      break;
+    case "admin": //后台
+      k = await handle_admin(request);
+      break;
+    case "article": //文章内容页
+      k = await handle_article(paths[1]);
+      break;
+    case "": //文章 首页
+    case "page": //文章 分页
+    case "category": //分类 分页
+    case "tags": //标签 分页
+      k = await renderBlog(url);
+      break;
+    default:
+      //其他页面返回404
+      k= new Response(OPT.html404,{
+        headers:{
+          "content-type":"text/html;charset=UTF-8"
+        },
+        status:200
+      })
+      break;
+  }  
+  //设置浏览器缓存时间:后台不缓存、只缓存前台
+  try{
+    if("admin"==paths[0]){
+      k.headers.set("Cache-Control","no-store")
+    }else{
+      k.headers.set("Cache-Control","public, max-age="+OPT.cacheTime),
+      event.waitUntil(D.put(M,k.clone()))
+    }
+  }catch(e){}
+  
+  return k
 }
 
 /**------【③.分而治之：各种请求分开处理】-----**/
@@ -828,7 +747,6 @@ async function handle_admin(request){
       html,//返回html
       json,//返回json
       file;//返回文件
-      
   //新建页
   if(1==paths.length||"list"==paths[1]){
     //读取主题的admin/index.html源码
@@ -845,8 +763,7 @@ async function handle_admin(request){
                     
     //添加后台首页配置
     if(OPT.admin_home_idx && OPT.admin_home_idx>=1 && OPT.admin_home_idx<=4){
-      html = html.replace("$('#myTab li:eq(0) 1').tab('show')",
-        "$('#myTab a:eq("+OPT.admin_home_idx+")').tab('show')")
+      html = html.replace("$('#myTab li:eq(0) 1').tab('show')","$($('#myTab a[href*=\"'+location.hash+'\"]')[0]||$('#myTab a:eq("+OPT.admin_home_idx+")')).tab('show')")
     }
     //添加置顶样式
     if(OPT.top_flag_style){
@@ -920,24 +837,15 @@ async function handle_admin(request){
       let success = await saveWidgetCategory(widgetCategory)
       success = success && await saveWidgetMenu(widgetMenu)
       success = success && await saveWidgetLink(widgetLink)
-      
-      // 添加自动清理缓存的代码
-      let purgeSuccess = false
-      if(success) {
-        purgeSuccess = await purge()
-      }
-      
-      json = success ? 
-        `{"msg":"保存成功${purgeSuccess ? '并已清理缓存' : '，但缓存清理失败'}","rst":true,"purge":${purgeSuccess}}` : 
-        '{"msg":"保存失败","rst":false,"purge":false}'
+      json = success ? '{"msg":"saved","rst":true}' : '{"msg":"Save Faild!!!","ret":false}'
     }else{
-      json = '{"msg":"格式错误，不是有效的JSON对象","rst":false,"purge":false}'
+      json = '{"msg":"Not a JSON object","rst":false}'
     }
   }
   
   //导入
   if("import"==paths[1]){
-    let importJson=(await parseReq(request)).importJson;
+    let importJsone=(await parseReq(request)).importJson;
     console.log("开始导入",typeof importJson)
     
     if(checkFormat(importJson)){
@@ -1078,7 +986,7 @@ async function handle_admin(request){
       //将文章json写入KV（key为文章id，value为文章json字符串）
       await saveArticle(id,JSON.stringify(article));
       
-      //组装文章json，不包含HTML内容，用于列表展示
+      //组装文章json
       let articleWithoutHtml={
         id:id,
         title:title,
@@ -1096,19 +1004,16 @@ async function handle_admin(request){
       },
       articles_all_old=await getAllArticlesList(),//读取文章列表
       articles_all=[];
-      
+    
       //将最新的文章写入文章列表中，并按id排序后，再次回写到KV中
       articles_all.push(articleWithoutHtml),
       articles_all=articles_all.concat(articles_all_old),
       articles_all=sortArticle(articles_all),
-      await saveArticlesList(JSON.stringify(articles_all));
+      await saveArticlesList(JSON.stringify(articles_all))
       
-      // 添加自动清理缓存的代码
-      let purgeSuccess = await purge();
-      
-      json = `{"msg":"文章添加成功${purgeSuccess ? '并已清理缓存' : '，但缓存清理失败'}","rst":true,"id":"${id}","purge":${purgeSuccess}}`;
+      json = '{"msg":"added OK","rst":true,"id":"'+id+'"}'
     }else{
-      json = '{"msg":"信息不全","rst":false}';
+      json = '{"msg":"信息不全","rst":false}'
     }
   }
   
@@ -1116,19 +1021,60 @@ async function handle_admin(request){
   if("delete"==paths[1]){
     let id=paths[2]
     if(6==id.length){
-      await CFBLOG.delete(id);
-      let e=await getAllArticlesList();
-      for(r=0;r<e.length;r++){
-        if(id==e[r].id){
-          e.splice(r,1);
+      try {
+        // 1. 首先删除文章内容
+        await CFBLOG.delete(id);
+        console.log(`文章内容删除成功: ${id}`);
+        
+        // 2. 获取并更新文章列表
+        let articles = await getAllArticlesList();
+        let originalLength = articles.length;
+        articles = articles.filter(article => article.id !== id);
+        
+        if(articles.length < originalLength){
+          // 3. 保存更新后的文章列表
+          let saveResult = await saveArticlesList(JSON.stringify(articles));
+          console.log(`文章列表更新结果: ${saveResult}`);
           
-          await saveArticlesList(JSON.stringify(e))
-          json = '{"msg":"Delete ('+id+')  OK","rst":true,"id":"'+id+'"}'
-          break;
+          // 4. 更新文章序号
+          let indexNum = articles.length > 0 ? 
+            Math.max(...articles.map(a => parseInt(a.id))) : 0;
+          await saveIndexNum(indexNum);
+          console.log(`文章序号已更新为: ${indexNum}`);
+          
+          // 5. 强制清除缓存
+          let purgeResult = await purge();
+          console.log(`缓存清除结果: ${purgeResult}`);
+          
+          // 6. 返回成功响应
+          json = JSON.stringify({
+            status: "success",
+            message: "文章删除成功",
+            id: id,
+            purged: purgeResult,
+            newIndexNum: indexNum
+          });
+        } else {
+          json = JSON.stringify({
+            status: "error",
+            message: "文章在列表中未找到",
+            id: id
+          });
         }
+      } catch(e) {
+        console.error("删除文章时出错:", e);
+        json = JSON.stringify({
+          status: "error",
+          message: "删除文章时发生错误: " + e.message,
+          id: id
+        });
       }
-    }else{
-      json = '{"msg":"Delete  false ","rst":false,"id":"'+id+'"}'
+    } else {
+      json = JSON.stringify({
+        status: "error",
+        message: "无效的文章ID",
+        id: id
+      });
     }
   }
   
@@ -1181,7 +1127,7 @@ async function handle_admin(request){
       //将文章json写入KV（key为文章id，value为文章json字符串）
       await saveArticle(id,JSON.stringify(article));
       
-      //组装文章json，不包含HTML内容，用于列表展示
+      //组装文章json
       let articleWithoutHtml={
         id:id,
         title:title,
@@ -1198,7 +1144,7 @@ async function handle_admin(request){
         changefreq:changefreq
       },
       articles_all=await getAllArticlesList();//读取文章列表
-      
+      //console.log(articles_all)
       //将原对象删掉，将最新的文章加入文章列表中，并重新按id排序后，再次回写到KV中
       for(var i=articles_all.length-1;i>=0;i--){//按索引删除，要倒序，否则索引值会变
         if(articles_all[i].id == id){
@@ -1208,14 +1154,10 @@ async function handle_admin(request){
       }
       articles_all.push(articleWithoutHtml),
       articles_all=sortArticle(articles_all),
-      await saveArticlesList(JSON.stringify(articles_all));
-      
-      // 添加自动清理缓存的代码
-      let purgeSuccess = await purge();
-      
-      json = `{"msg":"文章编辑成功${purgeSuccess ? '并已清理缓存' : '，但缓存清理失败'}","rst":true,"id":"${id}","purge":${purgeSuccess}}`;
+      await saveArticlesList(JSON.stringify(articles_all))
+      json = '{"msg":"Edit OK","rst":true,"id":"'+id+'"}'
     }else{
-      json = '{"msg":"信息不全","rst":false}';
+      json = '{"msg":"信息不全","rst":false}'
     }
   }
   
@@ -1254,13 +1196,13 @@ async function handle_admin(request){
 
 //访问管理后台或私密博客，则进行Base Auth
 function parseBasicAuth(request){
-    const auth=request.headers.get("Authorization");
-    if(!auth||!/^Basic [A-Za-z0-9._~+/-]+=*$/i.test(auth)){
+    const auth = request.headers.get("Authorization");
+    if(!auth || !/^Basic [A-Za-z0-9._~+/-]+=*$/i.test(auth)){
         const token = request.headers.get("cfblog_token");
         if(token){
             //获取url请求对象
-            let url=new URL(request.url)
-            let paths=url.pathname.trim("/").split("/")
+            let url = new URL(request.url)
+            let paths = url.pathname.trim("/").split("/")
 
             //校验权限
             if("admin"==paths[0] && ("search.xml"==paths[1]||"sitemap.xml"==paths[1])){
@@ -1269,9 +1211,176 @@ function parseBasicAuth(request){
         }
         return false;
     }
-    const[user,pwd]=atob(auth.split(" ").pop()).split(":");
+    const[user, pwd] = atob(auth.split(" ").pop()).split(":");
     console.log("-----parseBasicAuth----- ", user, pwd)
-    return user===ACCOUNT.user && pwd===ACCOUNT.password
+    return user === ACCOUNT.user && pwd === ACCOUNT.password
+}
+
+// 添加登录页面处理函数
+async function handle_login(request) {
+    const url = new URL(request.url);
+    
+    // 处理登录表单提交
+    if (request.method === "POST") {
+        const formData = await request.formData();
+        const username = formData.get("username");
+        const password = formData.get("password");
+        
+        if (username === ACCOUNT.user && password === ACCOUNT.password) {
+            // 登录成功，生成一个简单的token（实际应用中应使用更安全的方法）
+            const token = btoa(username + ":" + password);
+            
+            // 重定向到管理页面，带上Authorization头
+            return new Response("Login successful", {
+                status: 302,
+                headers: {
+                    "Set-Cookie": `auth=${token}; HttpOnly; Path=/admin; SameSite=Strict`,
+                    "Location": "/admin"
+                }
+            });
+        } else {
+            // 登录失败，返回登录页面并显示错误
+            return renderLoginPage(true);
+        }
+    }
+    
+    // 显示登录页面
+    return renderLoginPage(false);
+}
+
+// 渲染登录页面函数
+function renderLoginPage(showError) {
+    const errorMessage = showError ? '<div class="error-message">用户名或密码错误</div>' : '';
+    
+    const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录 - ${OPT.siteName}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+            padding: 40px;
+            width: 400px;
+            max-width: 90%;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .login-header h1 {
+            color: #333;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .login-header img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        .form-group input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.2);
+            outline: none;
+        }
+        .submit-btn {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .submit-btn:hover {
+            background-color: #0069d9;
+        }
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <img src="${OPT.logo}" alt="${OPT.siteName} Logo">
+            <h1>${OPT.siteName} 管理后台</h1>
+        </div>
+        ${errorMessage}
+        <form method="POST" action="/login">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="submit-btn">登录</button>
+        </form>
+        <a href="/" class="back-link">返回博客首页</a>
+    </div>
+</body>
+</html>`;
+
+    return new Response(html, {
+        headers: {
+            "content-type": "text/html;charset=UTF-8"
+        }
+    });
 }
 
 //获取所有【公开】文章：仅前台使用
@@ -1335,181 +1444,12 @@ async function getThemeHtml(template_path){
   template_path=template_path.replace(".html","")
   let html = await (await fetch(OPT.themeURL+template_path+".html",{cf:{cacheTtl:600}})).text();
   
-  // 仅在后台首页添加退出按钮
-  if("admin/index"==template_path){
-    // 添加退出按钮和样式
-    html = html.replace('</head>', `
-    <style>
-      .logout-btn {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        padding: 5px 10px;
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        color: #495057;
-        border-radius: 3px;
-        text-decoration: none;
-        font-size: 14px;
-        z-index: 1050; /* 确保足够高 */
-      }
-      .logout-btn:hover {
-        background-color: #e9ecef;
-      }
-    </style>
-    </head>`);
-    
-    // 更精确地替换body标签
-    if(html.includes('<body>')){
-      html = html.replace('<body>', '<body><a href="/admin/logout" class="logout-btn">退出登录</a>');
-    } else if(html.includes('<body ')){
-      html = html.replace(/<body ([^>]*)>/, '<body $1><a href="/admin/logout" class="logout-btn">退出登录</a>');
-    }
-    
-    // 编辑器脚本替换
-    if(html.includes("$('#WidgetCategory').val(JSON.stringify(categoryJson))")){
-      html = html.replace("$('#WidgetCategory').val(JSON.stringify(categoryJson))",
-                         OPT.editor_page_scripts+"$('#WidgetCategory').val(JSON.stringify(categoryJson))");
-    }
-  } 
-  // 特别处理编辑页面 - 完全修复编辑器初始化问题
-  else if("admin/edit"==template_path){
-    // 编辑器脚本替换
-    if(html.includes("$('#WidgetCategory').val(JSON.stringify(categoryJson))")){
-      html = html.replace("$('#WidgetCategory').val(JSON.stringify(categoryJson))",
-                         OPT.editor_page_scripts+"$('#WidgetCategory').val(JSON.stringify(categoryJson))");
-    }
-    
-    // 1. 删除垂直文字DOM元素
-    html = html.replace(/<div class="editormd-vertical[\s\S]*?<\/div>/gi, '');
-    
-    // 2. 修改编辑器初始化参数 - 添加完整的初始化选项
-    html = html.replace('var editor = editormd("content-editormd",', `
-    // 定义编辑器配置
-    var editorConfig = {
-      width: "100%",
-      height: 640,
-      path: "/themes/JustNews/assets/editormd/lib/",
-      markdown: {vertical: false},
-      codeFold: true,
-      saveHTMLToTextarea: true,
-      searchReplace: true,
-      watch: false,  // 关闭实时预览，避免初始化问题
-      toolbar: true,
-      
-      // 以下是关键：强制编辑器激活
-      onload: function() {
-        // 禁用垂直显示
-        this.settings.markdown.vertical = false;
-        
-        // 延迟触发单击编辑区域的事件
-        setTimeout(() => {
-          // 1. 强制激活编辑模式
-          this.activateToolbarItems("preview");
-          this.activateToolbarItems("preview");
-          
-          // 2. 强制刷新布局
-          this.resize("100%", 640);
-          
-          // 3. 强制重绘编辑区域
-          this.codeEditor.refresh();
-          
-          // 4. 设置焦点到编辑区域
-          this.focus();
-          
-          console.log("编辑器初始化完成并激活");
-        }, 100);
-      }
-    };
-    
-    var editor = editormd("content-editormd", editorConfig`);
-    
-    // 3. 添加样式和编辑器启动修复脚本
-    html = html.replace('</head>', `
-    <style>
-      /* 禁用垂直文字并修复布局 */
-      .editormd-vertical { display: none !important; }
-      
-      /* 确保编辑区域完全显示 */
-      .editormd-preview-container, .editormd-html-preview {
-        width: 100% !important;
-        padding: 20px !important;
-        overflow: auto !important;
-      }
-      
-      /* 修复CodeMirror编辑器区域 */
-      .CodeMirror {
-        height: 545px !important;
-      }
-      
-      /* 强制显示编辑器和预览区 */
-      .editormd-preview { display: block !important; }
-    </style>
-    
-    <script>
-      // 页面加载完成后修复编辑器
-      document.addEventListener('DOMContentLoaded', function() {
-        console.log("开始修复编辑器...");
-        
-        // 1. 等待100ms确保页面基本加载完毕
-        setTimeout(function() {
-          // 模拟调整窗口大小，触发编辑器重新布局
-          window.dispatchEvent(new Event('resize'));
-          
-          // 尝试直接点击编辑区域的事件
-          try {
-            const editArea = document.querySelector('.editormd-editor-preview');
-            if (editArea) {
-              editArea.click();
-            }
-          } catch(e) {
-            console.error("点击编辑区域失败:", e);
-          }
-        }, 100);
-        
-        // 2. 再次尝试强制修复编辑器，多时间点确保成功
-        setTimeout(function() {
-          // 点击工具栏的预览按钮再点回来，强制激活编辑器
-          try {
-            const previewBtn = document.querySelector('.fa-eye');
-            if (previewBtn && previewBtn.parentNode) {
-              previewBtn.parentNode.click();
-              setTimeout(function() {
-                previewBtn.parentNode.click();
-              }, 50);
-            }
-            
-            // 模拟编辑动作，触发刷新
-            if (typeof editor !== 'undefined' && editor) {
-              editor.focus();
-              
-              // 调用重绘方法
-              if (editor.recreate) {
-                editor.recreate();
-              }
-            }
-          } catch(e) {
-            console.error("强制激活编辑器失败:", e);
-          }
-        }, 500);
-      });
-      
-      // 添加全局监听，在任何时候点击页面时确保编辑器正常
-      document.addEventListener('click', function() {
-        if (typeof editor !== 'undefined' && editor) {
-          // 延迟执行，避免干扰正常点击
-          setTimeout(function() {
-            try {
-              editor.resize("100%", 640);
-            } catch(e) {}
-          }, 10);
-        }
-      }, true);
-    </script>
-    </head>`);
+  //对后台编辑页下手
+  if("admin/index|admin/editor".includes(template_path)){
+      html = html.replace("$('#WidgetCategory').val(JSON.stringify(categoryJson))",OPT.editor_page_scripts+"$('#WidgetCategory').val(JSON.stringify(categoryJson))")
   }
   
-  return html;
+  return html
 }
 
 //根据文章id，返回上篇、下篇文章，文章内容页底部会用到
@@ -1528,19 +1468,36 @@ async function getSiblingArticle(id){
 }
 
 //清除缓存
-async function purge(cacheZoneId=ACCOUNT.cacheZoneId,cacheToken=ACCOUNT.cacheToken){
-    if(null==cacheZoneId||null==cacheToken||cacheZoneId.length<5||cacheToken.length<5){
+async function purge(cacheZoneId=ACCOUNT.cacheZoneId, cacheToken=ACCOUNT.cacheToken){
+    if(null==cacheZoneId || null==cacheToken || cacheZoneId.length<5 || cacheToken.length<5){
+        console.warn("缓存清除失败：缺少有效的cacheZoneId或cacheToken");
         return false;
     }
-    let ret=await fetch(`https://api.cloudflare.com/client/v4/zones/${cacheZoneId}/purge_cache`,{
-        method:"POST",
-        headers:{
-            "Authorization":"Bearer "+cacheToken,
-            "Content-Type":"application/json"
-        },
-        body:'{"purge_everything":true}'
-    });
-    return (await ret.json()).success
+    
+    try {
+        // 尝试清除所有缓存
+        let ret = await fetch(`https://api.cloudflare.com/client/v4/zones/${cacheZoneId}/purge_cache`,{
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + cacheToken,
+                "Content-Type": "application/json"
+            },
+            body: '{"purge_everything":true}'
+        });
+        
+        const result = await ret.json();
+        console.log("缓存清除结果:", result);
+        
+        if(!result.success) {
+            console.error("缓存清除失败:", result.errors);
+            return false;
+        }
+        
+        return true;
+    } catch(e) {
+        console.error("缓存清除出错:", e);
+        return false;
+    }
 }
 
 //后台文章列表页的分页加载，返回[文章列表,是否无下一页]
@@ -1557,7 +1514,6 @@ async function admin_nextPage(pageNo,pageSize=OPT.pageSize){
       }
       articles.push(articles_all[i]);
     }
-    //articles=sortArticle(articles);
     return articles
 }
 
@@ -1603,7 +1559,7 @@ async function parseReq(request){
 async function generateId(){
     //KV中读取文章数量（初始化为1），并格式化为6位，不足6位前面补零
     let article_id_seq=await getIndexNum();
-    if(""===article_id_seq||null===article_id_seq||"[]"===article_seq||void 0===article_seq){
+    if(""===article_id_seq||null===article_id_seq||"[]"===article_id_seq||void 0===article_id_seq){
         await saveIndexNum(1)
         return "000001"
     }else{
@@ -1756,327 +1712,142 @@ function checkFormat(t){
 //引入mustache.js，4.1.0：https://cdn.bootcdn.net/ajax/libs/mustache.js/4.1.0/mustache.min.js
 (function(global,factory){typeof exports==="object"&&typeof module!=="undefined"?module.exports=factory():typeof define==="function"&&define.amd?define(factory):(global=global||self,global.Mustache=factory())})(this,function(){"use strict";var objectToString=Object.prototype.toString;var isArray=Array.isArray||function isArrayPolyfill(object){return objectToString.call(object)==="[object Array]"};function isFunction(object){return typeof object==="function"}function typeStr(obj){return isArray(obj)?"array":typeof obj}function escapeRegExp(string){return string.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g,"\\$&")}function hasProperty(obj,propName){return obj!=null&&typeof obj==="object"&&propName in obj}function primitiveHasOwnProperty(primitive,propName){return primitive!=null&&typeof primitive!=="object"&&primitive.hasOwnProperty&&primitive.hasOwnProperty(propName)}var regExpTest=RegExp.prototype.test;function testRegExp(re,string){return regExpTest.call(re,string)}var nonSpaceRe=/\S/;function isWhitespace(string){return!testRegExp(nonSpaceRe,string)}var entityMap={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","/":"&#x2F;","`":"&#x60;","=":"&#x3D;"};function escapeHtml(string){return String(string).replace(/[&<>"'`=\/]/g,function fromEntityMap(s){return entityMap[s]})}var whiteRe=/\s*/;var spaceRe=/\s+/;var equalsRe=/\s*=/;var curlyRe=/\s*\}/;var tagRe=/#|\^|\/|>|\{|&|=|!/;function parseTemplate(template,tags){if(!template)return[];var lineHasNonSpace=false;var sections=[];var tokens=[];var spaces=[];var hasTag=false;var nonSpace=false;var indentation="";var tagIndex=0;function stripSpace(){if(hasTag&&!nonSpace){while(spaces.length)delete tokens[spaces.pop()]}else{spaces=[]}hasTag=false;nonSpace=false}var openingTagRe,closingTagRe,closingCurlyRe;function compileTags(tagsToCompile){if(typeof tagsToCompile==="string")tagsToCompile=tagsToCompile.split(spaceRe,2);if(!isArray(tagsToCompile)||tagsToCompile.length!==2)throw new Error("Invalid tags: "+tagsToCompile);openingTagRe=new RegExp(escapeRegExp(tagsToCompile[0])+"\\s*");closingTagRe=new RegExp("\\s*"+escapeRegExp(tagsToCompile[1]));closingCurlyRe=new RegExp("\\s*"+escapeRegExp("}"+tagsToCompile[1]))}compileTags(tags||mustache.tags);var scanner=new Scanner(template);var start,type,value,chr,token,openSection;while(!scanner.eos()){start=scanner.pos;value=scanner.scanUntil(openingTagRe);if(value){for(var i=0,valueLength=value.length;i<valueLength;++i){chr=value.charAt(i);if(isWhitespace(chr)){spaces.push(tokens.length);indentation+=chr}else{nonSpace=true;lineHasNonSpace=true;indentation+=" "}tokens.push(["text",chr,start,start+1]);start+=1;if(chr==="\n"){stripSpace();indentation="";tagIndex=0;lineHasNonSpace=false}}}if(!scanner.scan(openingTagRe))break;hasTag=true;type=scanner.scan(tagRe)||"name";scanner.scan(whiteRe);if(type==="="){value=scanner.scanUntil(equalsRe);scanner.scan(equalsRe);scanner.scanUntil(closingTagRe)}else if(type==="{"){value=scanner.scanUntil(closingCurlyRe);scanner.scan(curlyRe);scanner.scanUntil(closingTagRe);type="&"}else{value=scanner.scanUntil(closingTagRe)}if(!scanner.scan(closingTagRe))throw new Error("Unclosed tag at "+scanner.pos);if(type==">"){token=[type,value,start,scanner.pos,indentation,tagIndex,lineHasNonSpace]}else{token=[type,value,start,scanner.pos]}tagIndex++;tokens.push(token);if(type==="#"||type==="^"){sections.push(token)}else if(type==="/"){openSection=sections.pop();if(!openSection)throw new Error('Unopened section "'+value+'" at '+start);if(openSection[1]!==value)throw new Error('Unclosed section "'+openSection[1]+'" at '+start)}else if(type==="name"||type==="{"||type==="&"){nonSpace=true}else if(type==="="){compileTags(value)}}stripSpace();openSection=sections.pop();if(openSection)throw new Error('Unclosed section "'+openSection[1]+'" at '+scanner.pos);return nestTokens(squashTokens(tokens))}function squashTokens(tokens){var squashedTokens=[];var token,lastToken;for(var i=0,numTokens=tokens.length;i<numTokens;++i){token=tokens[i];if(token){if(token[0]==="text"&&lastToken&&lastToken[0]==="text"){lastToken[1]+=token[1];lastToken[3]=token[3]}else{squashedTokens.push(token);lastToken=token}}}return squashedTokens}function nestTokens(tokens){var nestedTokens=[];var collector=nestedTokens;var sections=[];var token,section;for(var i=0,numTokens=tokens.length;i<numTokens;++i){token=tokens[i];switch(token[0]){case"#":case"^":collector.push(token);sections.push(token);collector=token[4]=[];break;case"/":section=sections.pop();section[5]=token[2];collector=sections.length>0?sections[sections.length-1][4]:nestedTokens;break;default:collector.push(token)}}return nestedTokens}function Scanner(string){this.string=string;this.tail=string;this.pos=0}Scanner.prototype.eos=function eos(){return this.tail===""};Scanner.prototype.scan=function scan(re){var match=this.tail.match(re);if(!match||match.index!==0)return"";var string=match[0];this.tail=this.tail.substring(string.length);this.pos+=string.length;return string};Scanner.prototype.scanUntil=function scanUntil(re){var index=this.tail.search(re),match;switch(index){case-1:match=this.tail;this.tail="";break;case 0:match="";break;default:match=this.tail.substring(0,index);this.tail=this.tail.substring(index)}this.pos+=match.length;return match};function Context(view,parentContext){this.view=view;this.cache={".":this.view};this.parent=parentContext}Context.prototype.push=function push(view){return new Context(view,this)};Context.prototype.lookup=function lookup(name){var cache=this.cache;var value;if(cache.hasOwnProperty(name)){value=cache[name]}else{var context=this,intermediateValue,names,index,lookupHit=false;while(context){if(name.indexOf(".")>0){intermediateValue=context.view;names=name.split(".");index=0;while(intermediateValue!=null&&index<names.length){if(index===names.length-1)lookupHit=hasProperty(intermediateValue,names[index])||primitiveHasOwnProperty(intermediateValue,names[index]);intermediateValue=intermediateValue[names[index++]]}}else{intermediateValue=context.view[name];lookupHit=hasProperty(context.view,name)}if(lookupHit){value=intermediateValue;break}context=context.parent}cache[name]=value}if(isFunction(value))value=value.call(this.view);return value};function Writer(){this.templateCache={_cache:{},set:function set(key,value){this._cache[key]=value},get:function get(key){return this._cache[key]},clear:function clear(){this._cache={}}}}Writer.prototype.clearCache=function clearCache(){if(typeof this.templateCache!=="undefined"){this.templateCache.clear()}};Writer.prototype.parse=function parse(template,tags){var cache=this.templateCache;var cacheKey=template+":"+(tags||mustache.tags).join(":");var isCacheEnabled=typeof cache!=="undefined";var tokens=isCacheEnabled?cache.get(cacheKey):undefined;if(tokens==undefined){tokens=parseTemplate(template,tags);isCacheEnabled&&cache.set(cacheKey,tokens)}return tokens};Writer.prototype.render=function render(template,view,partials,config){var tags=this.getConfigTags(config);var tokens=this.parse(template,tags);var context=view instanceof Context?view:new Context(view,undefined);return this.renderTokens(tokens,context,partials,template,config)};Writer.prototype.renderTokens=function renderTokens(tokens,context,partials,originalTemplate,config){var buffer="";var token,symbol,value;for(var i=0,numTokens=tokens.length;i<numTokens;++i){value=undefined;token=tokens[i];symbol=token[0];if(symbol==="#")value=this.renderSection(token,context,partials,originalTemplate,config);else if(symbol==="^")value=this.renderInverted(token,context,partials,originalTemplate,config);else if(symbol===">")value=this.renderPartial(token,context,partials,config);else if(symbol==="&")value=this.unescapedValue(token,context);else if(symbol==="name")value=this.escapedValue(token,context,config);else if(symbol==="text")value=this.rawValue(token);if(value!==undefined)buffer+=value}return buffer};Writer.prototype.renderSection=function renderSection(token,context,partials,originalTemplate,config){var self=this;var buffer="";var value=context.lookup(token[1]);function subRender(template){return self.render(template,context,partials,config)}if(!value)return;if(isArray(value)){for(var j=0,valueLength=value.length;j<valueLength;++j){buffer+=this.renderTokens(token[4],context.push(value[j]),partials,originalTemplate,config)}}else if(typeof value==="object"||typeof value==="string"||typeof value==="number"){buffer+=this.renderTokens(token[4],context.push(value),partials,originalTemplate,config)}else if(isFunction(value)){if(typeof originalTemplate!=="string")throw new Error("Cannot use higher-order sections without the original template");value=value.call(context.view,originalTemplate.slice(token[3],token[5]),subRender);if(value!=null)buffer+=value}else{buffer+=this.renderTokens(token[4],context,partials,originalTemplate,config)}return buffer};Writer.prototype.renderInverted=function renderInverted(token,context,partials,originalTemplate,config){var value=context.lookup(token[1]);if(!value||isArray(value)&&value.length===0)return this.renderTokens(token[4],context,partials,originalTemplate,config)};Writer.prototype.indentPartial=function indentPartial(partial,indentation,lineHasNonSpace){var filteredIndentation=indentation.replace(/[^ \t]/g,"");var partialByNl=partial.split("\n");for(var i=0;i<partialByNl.length;i++){if(partialByNl[i].length&&(i>0||!lineHasNonSpace)){partialByNl[i]=filteredIndentation+partialByNl[i]}}return partialByNl.join("\n")};Writer.prototype.renderPartial=function renderPartial(token,context,partials,config){if(!partials)return;var tags=this.getConfigTags(config);var value=isFunction(partials)?partials(token[1]):partials[token[1]];if(value!=null){var lineHasNonSpace=token[6];var tagIndex=token[5];var indentation=token[4];var indentedValue=value;if(tagIndex==0&&indentation){indentedValue=this.indentPartial(value,indentation,lineHasNonSpace)}var tokens=this.parse(indentedValue,tags);return this.renderTokens(tokens,context,partials,indentedValue,config)}};Writer.prototype.unescapedValue=function unescapedValue(token,context){var value=context.lookup(token[1]);if(value!=null)return value};Writer.prototype.escapedValue=function escapedValue(token,context,config){var escape=this.getConfigEscape(config)||mustache.escape;var value=context.lookup(token[1]);if(value!=null)return typeof value==="number"&&escape===mustache.escape?String(value):escape(value)};Writer.prototype.rawValue=function rawValue(token){return token[1]};Writer.prototype.getConfigTags=function getConfigTags(config){if(isArray(config)){return config}else if(config&&typeof config==="object"){return config.tags}else{return undefined}};Writer.prototype.getConfigEscape=function getConfigEscape(config){if(config&&typeof config==="object"&&!isArray(config)){return config.escape}else{return undefined}};var mustache={name:"mustache.js",version:"4.1.0",tags:["{{","}}"],clearCache:undefined,escape:undefined,parse:undefined,render:undefined,Scanner:undefined,Context:undefined,Writer:undefined,set templateCache(cache){defaultWriter.templateCache=cache},get templateCache(){return defaultWriter.templateCache}};var defaultWriter=new Writer;mustache.clearCache=function clearCache(){return defaultWriter.clearCache()};mustache.parse=function parse(template,tags){return defaultWriter.parse(template,tags)};mustache.render=function render(template,view,partials,config){if(typeof template!=="string"){throw new TypeError('Invalid template! Template should be a "string" '+'but "'+typeStr(template)+'" was given as the first '+"argument for mustache#render(template, view, partials)")}return defaultWriter.render(template,view,partials,config)};mustache.escape=escapeHtml;mustache.Scanner=Scanner;mustache.Context=Context;mustache.Writer=Writer;return mustache});
 
-/**------【新增：登录相关功能】-----**/
-
-// 显示登录页面
-async function showLoginPage() {
-  const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CFBLOG-Plus 管理员登录</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background-color: #f7f9fc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-    .login-container {
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 400px;
-      padding: 30px;
-      text-align: center;
-    }
-    .login-logo {
-      margin-bottom: 20px;
-    }
-    .login-logo img {
-      max-width: 120px;
-      height: auto;
-    }
-    h1 {
-      font-size: 24px;
-      font-weight: 600;
-      color: #333;
-      margin-bottom: 20px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-      text-align: left;
-    }
-    label {
-      display: block;
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 6px;
-    }
-    input {
-      width: 100%;
-      padding: 12px 15px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 15px;
-      transition: border-color 0.2s;
-      outline: none;
-    }
-    input:focus {
-      border-color: #f7931e;
-      box-shadow: 0 0 0 2px rgba(247, 147, 30, 0.1);
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background-color: #f7931e;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #e67e00;
-    }
-    .error-message {
-      color: #e74c3c;
-      font-size: 14px;
-      margin-top: 20px;
-      display: none;
-    }
-    .back-to-site {
-      margin-top: 20px;
-      font-size: 14px;
-      color: #777;
-    }
-    .back-to-site a {
-      color: #f7931e;
-      text-decoration: none;
-    }
-    .back-to-site a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-  <div class="login-container">
-    <div class="login-logo">
-      <img src="${OPT.logo || 'https://cdn.jsdelivr.net/gh/Arronlong/cfblog-plus@master/themes/JustNews/files/logo2.png'}" alt="CFBLOG-Plus Logo">
-    </div>
-    <h1>管理员登录</h1>
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="username">用户名</label>
-        <input type="text" id="username" name="username" required autocomplete="username">
-      </div>
-      <div class="form-group">
-        <label for="password">密码</label>
-        <input type="password" id="password" name="password" required autocomplete="current-password">
-      </div>
-      <button type="submit">登录</button>
-      <div id="errorMessage" class="error-message">用户名或密码错误</div>
-    </form>
-    <div class="back-to-site">
-      <a href="/">← 返回博客首页</a>
-    </div>
-  </div>
-
-  <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const errorMessage = document.getElementById('errorMessage');
-      
-      try {
-        const response = await fetch('/admin/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ username, password })
-        });
-        
-        if (response.ok) {
-          window.location.href = '/admin/';
-        } else {
-          errorMessage.style.display = 'block';
-        }
-      } catch (error) {
-        errorMessage.style.display = 'block';
-        errorMessage.textContent = '登录请求失败，请稍后再试';
+// 添加删除文章的功能
+async function deleteArticle(id) {
+  try {
+    // 获取文章列表
+    let articles = await getAllArticlesList();
+    
+    // 查找要删除的文章索引
+    let index = -1;
+    for(let i = 0; i < articles.length; i++) {
+      if(articles[i].id === id) {
+        index = i;
+        break;
       }
+    }
+    
+    // 如果找到文章，从列表中删除
+    if(index !== -1) {
+      // 从列表中删除文章
+      articles.splice(index, 1);
+      
+      // 更新文章列表
+      await saveArticlesList(articles);
+      
+      // 删除文章内容
+      await CFBLOG.delete(id);
+      
+      // 重新计算最新文章序号
+      let maxId = articles.reduce((max, article) => Math.max(max, parseInt(article.id)), 0);
+      await saveIndexNum(maxId);
+      
+      return new Response(JSON.stringify({
+        status: "success",
+        message: "文章已成功删除",
+        indexNum: maxId
+      }), {
+        headers: { "content-type": "application/json" }
+      });
+    } else {
+      return new Response(JSON.stringify({
+        status: "error",
+        message: "未找到指定文章"
+      }), {
+        headers: { "content-type": "application/json" },
+        status: 404
+      });
+    }
+  } catch(e) {
+    return new Response(JSON.stringify({
+      status: "error",
+      message: "删除文章失败：" + e.message
+    }), {
+      headers: { "content-type": "application/json" },
+      status: 500
     });
-  </script>
-</body>
-</html>`;
-
-  return new Response(html, {
-    headers: {
-      "content-type": "text/html;charset=UTF-8"
-    },
-    status: 200
-  });
+  }
 }
 
-// 获取登录页面HTML
-function getLoginPageHtml() {
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CFBLOG-Plus 管理员登录</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background-color: #f7f9fc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-    .login-container {
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 400px;
-      padding: 30px;
-      text-align: center;
-    }
-    .login-logo {
-      margin-bottom: 20px;
-    }
-    .login-logo img {
-      max-width: 120px;
-      height: auto;
-    }
-    h1 {
-      font-size: 24px;
-      font-weight: 600;
-      color: #333;
-      margin-bottom: 20px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-      text-align: left;
-    }
-    label {
-      display: block;
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 6px;
-    }
-    input {
-      width: 100%;
-      padding: 12px 15px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 15px;
-      transition: border-color 0.2s;
-      outline: none;
-    }
-    input:focus {
-      border-color: #f7931e;
-      box-shadow: 0 0 0 2px rgba(247, 147, 30, 0.1);
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background-color: #f7931e;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #e67e00;
-    }
-    .error-message {
-      color: #e74c3c;
-      font-size: 14px;
-      margin-top: 20px;
-      display: none;
-    }
-    .back-to-site {
-      margin-top: 20px;
-      font-size: 14px;
-      color: #777;
-    }
-    .back-to-site a {
-      color: #f7931e;
-      text-decoration: none;
-    }
-    .back-to-site a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-  <div class="login-container">
-    <div class="login-logo">
-      <img src="${OPT.logo || 'https://cdn.jsdelivr.net/gh/Arronlong/cfblog-plus@master/themes/JustNews/files/logo2.png'}" alt="CFBLOG-Plus Logo">
-    </div>
-    <h1>管理员登录</h1>
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="username">用户名</label>
-        <input type="text" id="username" name="username" required autocomplete="username">
-      </div>
-      <div class="form-group">
-        <label for="password">密码</label>
-        <input type="password" id="password" name="password" required autocomplete="current-password">
-      </div>
-      <button type="submit">登录</button>
-      <div id="errorMessage" class="error-message">用户名或密码错误</div>
-    </form>
-    <div class="back-to-site">
-      <a href="/">← 返回博客首页</a>
-    </div>
-  </div>
-
+// 修改后台HTML页面，在文章列表中添加删除按钮
+// 找到admin/index.html文件中处理的getHtmlIndex函数，添加删除按钮和交互脚本
+function getHtmlIndex(){
+  // ... 现有代码 ...
+  
+  // 在页面末尾添加删除功能的JavaScript代码
+  html = html.replace("</body>", `
   <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+  // 添加删除文章功能
+  function renderArticleList() {
+    const articleList = document.getElementById('articleList');
+    if (!articleList) return;
+    
+    // 为每篇文章添加删除按钮
+    const articleItems = articleList.getElementsByTagName('tr');
+    for(let i = 1; i < articleItems.length; i++) { // 从1开始跳过表头
+      const item = articleItems[i];
       
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const errorMessage = document.getElementById('errorMessage');
+      // 获取文章ID
+      const linkElem = item.querySelector('a[href*="/admin/edit/"]');
+      if(!linkElem) continue;
       
-      try {
-        const response = await fetch('/admin/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ username, password })
-        });
+      const href = linkElem.getAttribute('href');
+      const id = href.split('/').pop();
+      
+      // 在最后一个td内添加删除按钮
+      const lastTd = item.querySelector('td:last-child');
+      if(!lastTd) continue;
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn btn-danger btn-sm delete-article';
+      deleteBtn.setAttribute('data-id', id);
+      deleteBtn.innerHTML = '删除';
+      deleteBtn.style.marginLeft = '10px';
+      
+      lastTd.appendChild(deleteBtn);
+    }
+    
+    // 添加删除按钮点击事件
+    document.querySelectorAll('.delete-article').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const id = this.getAttribute('data-id');
+        if(!id) return;
         
-        if (response.ok) {
-          window.location.href = '/admin/';
-        } else {
-          errorMessage.style.display = 'block';
+        if(confirm('确定要删除这篇文章吗？此操作不可恢复！')) {
+          deleteArticle(id);
         }
-      } catch (error) {
-        errorMessage.style.display = 'block';
-        errorMessage.textContent = '登录请求失败，请稍后再试';
-      }
+      });
     });
+  }
+  
+  // 删除文章API调用
+  function deleteArticle(id) {
+    fetch('/admin/delete/' + id, {
+      method: 'GET'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if(data.status === 'success') {
+        alert('文章删除成功！');
+        // 刷新页面显示最新文章列表
+        location.reload();
+      } else {
+        alert('删除失败：' + (data.message || '未知错误'));
+      }
+    })
+    .catch(error => {
+      console.error('删除文章时出错:', error);
+      alert('删除文章时出错，请查看控制台');
+    });
+  }
+  
+  // 页面加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    renderArticleList();
+  });
   </script>
-</body>
-</html>`;
+  </body>`);
+  
+  return html;
 }
