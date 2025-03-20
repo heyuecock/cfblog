@@ -15,6 +15,20 @@ CFBLOG-Plus 是一个基于 Cloudflare Workers 和 KV 存储的轻量级博客�
 - ⚡ 代码高亮、复制功能增强
 - 🖥️ 简洁易用的管理后台
 
+## 新增功能
+
+相比原版 CF-Blog,新增了以下功能:
+
+1. 文章置顶功能
+2. 文章隐藏功能
+3. 文章删除功能
+   - 在文章编辑页面提供删除按钮
+   - 删除文章后自动更新文章序号
+   - 删除后自动清理缓存
+4. 优化了缓存处理
+5. 改进了后台管理界面
+6. 添加了更多主题选项
+
 ## 快速开始
 
 ### 前置要求
@@ -36,7 +50,9 @@ CFBLOG-Plus 是一个基于 Cloudflare Workers 和 KV 存储的轻量级博客�
    - 在左侧导航栏选择 "KV"
    - 点击 "Create namespace"
    - 输入命名空间名称 "CFBLOG"，点击创建
-
+   - 在进入创建的KV，设置KV Pairs，添加
+     Key：SYSTEM_INDEX_NU，Value：0
+     
 4. 绑定 KV 到 Worker
    - 返回刚创建的 Worker
    - 点击 "Settings" 选项卡
@@ -54,11 +70,11 @@ CFBLOG-Plus 是一个基于 Cloudflare Workers 和 KV 存储的轻量级博客�
      - `BLOG_CACHE_ZONE_ID`: Cloudflare区域ID（可选，用于清理缓存）
      - `BLOG_CACHE_TOKEN`: Cloudflare API令牌（可选，用于清理缓存）
    - 点击 "Save"
-   - 如果不配置`BLOG_CACHE_ZONE_ID`，`BLOG_CACHE_TOKEN`这两个参数，博客仍然能正常工作，但当内容更新时，可能需要等待 Cloudflare 缓存自然过期（或手动清理缓存）才能看到最新内容。配置后，每次更新内容都会自动清理缓存。
+
 6. 配置自定义域名（可选）
    - 在 Cloudflare Dashboard 中，确保已添加您的域名
    - 在 Worker 的 "Triggers" 选项卡中，点击 "Add Custom Domain"
-   - 选择您的域名并设置，如 `blog.example.com`
+   - 选择您的域名并设置路由，如 `blog.example.com/*`
    - 点击 "Add Custom Domain"
 
 7. 访问博客
