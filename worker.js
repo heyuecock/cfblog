@@ -2,9 +2,6 @@
 
 'use strict';
 
-// Cloudflare Workers 环境变量声明
-let USER = "", PASSWORD = "", THIRD_TOKEN = "", CACHE_ZONE_ID = "", CACHE_TOKEN = "";
-
 // 我们将在请求处理函数中加载环境变量
 const ACCOUNT = { //账号相关，安全性更高
   "user" : "", // 将在请求处理时动态获取
