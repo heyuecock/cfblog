@@ -58,7 +58,7 @@ CFBLOG-Plus 是一个基于 Cloudflare Workers 和 KV 存储的轻量级博客�
 6. 配置自定义域名（可选）
    - 在 Cloudflare Dashboard 中，确保已添加您的域名
    - 在 Worker 的 "Triggers" 选项卡中，点击 "Add Custom Domain"
-   - 选择您的域名并设置路由，如 `blog.example.com/*`
+   - 选择您的域名并设置，如 `blog.example.com`
    - 点击 "Add Custom Domain"
 
 7. 访问博客
