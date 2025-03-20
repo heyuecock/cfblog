@@ -54,7 +54,7 @@ CFBLOG-Plus 是一个基于 Cloudflare Workers 和 KV 存储的轻量级博客�
      - `BLOG_CACHE_ZONE_ID`: Cloudflare区域ID（可选，用于清理缓存）
      - `BLOG_CACHE_TOKEN`: Cloudflare API令牌（可选，用于清理缓存）
    - 点击 "Save"
-   -如果不配置`BLOG_CACHE_ZONE_ID`，`BLOG_CACHE_TOKEN`这两个参数，博客仍然能正常工作，但当内容更新时，可能需要等待 Cloudflare 缓存自然过期（或手动清理缓存）才能看到最新内容。配置后，每次更新内容都会自动清理缓存。
+   - 如果不配置`BLOG_CACHE_ZONE_ID`，`BLOG_CACHE_TOKEN`这两个参数，博客仍然能正常工作，但当内容更新时，可能需要等待 Cloudflare 缓存自然过期（或手动清理缓存）才能看到最新内容。配置后，每次更新内容都会自动清理缓存。
 6. 配置自定义域名（可选）
    - 在 Cloudflare Dashboard 中，确保已添加您的域名
    - 在 Worker 的 "Triggers" 选项卡中，点击 "Add Custom Domain"
