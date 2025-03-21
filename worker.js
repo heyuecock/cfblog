@@ -391,7 +391,6 @@ function loadEnvVariables() {
 // 处理请求
 async function handlerRequest(event){
   let request = event.request
-  //获取url请求对象
   let url = new URL(request.url)
   let paths = url.pathname.trim("/").split("/")
 
@@ -434,64 +433,91 @@ async function handlerRequest(event){
       });
     }
   }
-
-  //组装请求url，查看是否有缓存
-  const D=caches.default,
-      M="https://"+OPT.siteDomain+url.pathname,
-      x=new Request(M, request);
-  console.log("cacheFullPath:",M);
-  let k=await D.match(x);
-  if(k){
-    console.log("hit cache!")
-    return k;
+  
+  // 尝试从缓存获取，仅对GET请求
+  if (request.method === 'GET') {
+    // 构建缓存键
+    const cacheKey = "https://" + OPT.siteDomain + url.pathname;
+    const cache = caches.default;
+    
+    // 尝试从缓存获取
+    let response = await cache.match(new Request(cacheKey, request));
+    if (response) {
+      console.log("命中缓存:", cacheKey);
+      return response;
+    }
   }
 
-  switch(paths[0]){
-    case "favicon.ico": //图标
-      k = await handle_favicon(request);
-      break;
-    case "robots.txt":
-      k = await handle_robots(request);
-      break;
-    case "sitemap.xml":
-      k = await handle_sitemap(request);
-      break;
-    case "search.xml":
-      k = await handle_search(request);
-      break;
-    case "admin": //后台
-      k = await handle_admin(request);
-      break;
-    case "article": //文章内容页
-      k = await handle_article(paths[1]);
-      break;
-    case "": //文章 首页
-    case "page": //文章 分页
-    case "category": //分类 分页
-    case "tags": //标签 分页
-      k = await renderBlog(url);
-      break;
-    default:
-      //其他页面返回404
-      k= new Response(OPT.html404,{
-        headers:{
-          "content-type":"text/html;charset=UTF-8"
-        },
-        status:200
-      })
-      break;
-  }  
-  //设置浏览器缓存时间:后台不缓存、只缓存前台
-  try{
-    if("admin"==paths[0]){
-      k.headers.set("Cache-Control","no-store")
-    }else{
-      k.headers.set("Cache-Control","public, max-age="+OPT.cacheTime),
-      event.waitUntil(D.put(M,k.clone()))
+  // 处理实际请求
+  let response;
+
+  try {
+    switch(paths[0]){
+      case "favicon.ico": //图标
+        response = await handle_favicon(request);
+        break;
+      case "robots.txt":
+        response = await handle_robots(request);
+        break;
+      case "sitemap.xml":
+        response = await handle_sitemap(request);
+        break;
+      case "search.xml":
+        response = await handle_search(request);
+        break;
+      case "admin": //后台
+        response = await handle_admin(request);
+        break;
+      case "article": //文章内容页
+        response = await handle_article(paths[1]);
+        break;
+      case "": //文章 首页
+      case "page": //文章 分页
+      case "category": //分类 分页
+      case "tags": //标签 分页
+        response = await renderBlog(url);
+        break;
+      default:
+        //其他页面返回404
+        response = new Response(OPT.html404, {
+          headers: {
+            "content-type": "text/html;charset=UTF-8"
+          },
+          status: 200
+        });
+        break;
     }
-  }catch(e){}
+  } catch (error) {
+    // 错误处理
+    console.error("请求处理错误:", error);
+    response = new Response("内部服务器错误: " + error.message, {
+      status: 500,
+      headers: {
+        "Content-Type": "text/plain"
+      }
+    });
+  }
   
-  return k
+  // 设置缓存
+  if (request.method === 'GET' && response.ok && paths[0] !== 'admin') {
+    try {
+      // 克隆响应对象
+      const cacheResponse = new Response(response.clone().body, response);
+      // 设置缓存控制
+      cacheResponse.headers.set('Cache-Control', `public, max-age=${OPT.cacheTime}`);
+      
+      // 缓存响应
+      const cacheKey = "https://" + OPT.siteDomain + url.pathname;
+      event.waitUntil(caches.default.put(new Request(cacheKey, request), cacheResponse));
+    } catch (e) {
+      console.error("缓存设置错误:", e);
+    }
+  } else if (paths[0] === 'admin') {
+    // 管理页面不缓存
+    response.headers.set('Cache-Control', 'no-store');
+  }
+  
+  return response;
 }
 
 /**------【③.分而治之：各种请求分开处理】-----**/
@@ -1362,11 +1388,18 @@ function parseBasicAuth(request){
     if(!auth || !/^Basic [A-Za-z0-9._~+/-]+=*$/i.test(auth)){
         const token = request.headers.get("cfblog_token");
         if(token){
-            //获取url请求对象
+            // 增加token过期检查
+            try {
+                const tokenData = JSON.parse(atob(token.split('.')[1]));
+                if(tokenData.exp < Date.now()/1000) {
+                    return false;
+                }
+            } catch(e) {
+                return false; 
+            }
+            
             let url = new URL(request.url)
             let paths = url.pathname.trim("/").split("/")
-
-            //校验权限
             if("admin"==paths[0] && ("search.xml"==paths[1]||"sitemap.xml"==paths[1])){
                 return token === ACCOUNT.third_token
             }
@@ -1374,7 +1407,6 @@ function parseBasicAuth(request){
         return false;
     }
     const[user, pwd] = atob(auth.split(" ").pop()).split(":");
-    console.log("-----parseBasicAuth----- ", user, pwd)
     return user === ACCOUNT.user && pwd === ACCOUNT.password
 }
 
@@ -1759,15 +1791,17 @@ async function generateId(){
 
 //KV读取，toJson是否转为json，默认false
 async function getKV(key, toJson=false){
-  console.log("------------KV读取------------key,toJson:", key, toJson);
-  let value=await CFBLOG.get(key);
-  if(!toJson)
-    return null==value?"[]":value;
-  try{
-    return null==value?[]:JSON.parse(value)
-  }catch(e){
-    return[]
-  }
+    try {
+        console.log("KV读取, key:", key);
+        let value = await CFBLOG.get(key);
+        if(!toJson) {
+            return null==value?"[]":value;
+        }
+        return null==value?[]:JSON.parse(value);
+    } catch(e) {
+        console.error(`读取KV失败: ${key}`, e);
+        return toJson?[]:"[]";
+    }
 }
 //KV读取，获取所有文章（含公开+隐藏）:仅后台使用
 async function getAllArticlesList(){
@@ -1800,14 +1834,19 @@ async function getArticle(id){
 
 //写入KV，value如果未对象类型（数组或者json对象）需要序列化为字符串
 async function saveKV(key,value){
-    if(null!=value){
-        if("object"==typeof value){
-            value=JSON.stringify(value)
+    try {
+        if(null!=value){
+            if("object"==typeof value){
+                value=JSON.stringify(value)
+            }
+            await CFBLOG.put(key,value)
+            return true
         }
-        await CFBLOG.put(key,value)
-        return true
+        return false;
+    } catch(e) {
+        console.error(`保存KV失败: ${key}`, e);
+        return false;
     }
-    return false;
 }
 
 //写入KV，获取所有文章（含公开+隐藏）:仅后台使用
@@ -2028,4 +2067,53 @@ function getHtmlIndex(){
   </body>`);
   
   return html;
+}
+
+// 统一命名规范
+const SYSTEM_KEYS = {
+    ARTICLE_LIST: 'SYSTEM_INDEX_LIST',
+    ARTICLE_NUM: 'SYSTEM_INDEX_NUM', 
+    WIDGET_MENU: 'SYSTEM_VALUE_WidgetMenu',
+    WIDGET_CATEGORY: 'SYSTEM_VALUE_WidgetCategory',
+    WIDGET_TAGS: 'SYSTEM_VALUE_WidgetTags',
+    WIDGET_LINK: 'SYSTEM_VALUE_WidgetLink'
+};
+
+// 提取配置常量
+const CONFIG = {
+    PAGE_SIZE: 20,
+    CACHE_TIME: 60 * 60 * 24 * 2,
+    READ_MORE_LENGTH: 150
+};
+
+// 使用async/await替代Promise链
+async function purge(cacheZoneId=ACCOUNT.cacheZoneId, cacheToken=ACCOUNT.cacheToken) {
+    try {
+        if(!cacheZoneId || !cacheToken || cacheZoneId.length<5 || cacheToken.length<5) {
+            throw new Error('缺少有效的cacheZoneId或cacheToken');
+        }
+        
+        const response = await fetch(
+            `https://api.cloudflare.com/client/v4/zones/${cacheZoneId}/purge_cache`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${cacheToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({purge_everything: true})
+            }
+        );
+        
+        const result = await response.json();
+        
+        if(!result.success) {
+            throw new Error(result.errors.join(', '));
+        }
+        
+        return true;
+    } catch(e) {
+        console.error('清除缓存失败:', e);
+        return false;
+    }
 }
