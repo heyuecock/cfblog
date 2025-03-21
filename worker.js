@@ -16,7 +16,7 @@ const ACCOUNT = { //账号相关，安全性更高
 const OPT = { //网站配置
 
   /*--前台参数--*/
-  "siteDomain" : "blog.cuger.nyc.mn",// 域名(不带https 也不带/)
+  "siteDomain" : "blog.example.com",// 域名(不带https 也不带/)
   "siteName" : "CFBLOG-Plus",//博客名称
   "siteDescription":"CFBLOG-Plus" ,//博客描述
   "keyWords":"cloudflare,KV,workers,blog",//关键字
@@ -679,22 +679,18 @@ async function renderBlog(url){
     break;
   }
   pageNo = parseInt(pageNo)
-  // console.log(pageNo)
-  // console.log(articles)
-
+  
   //获取当页要显示文章列表
   let articles_show = articles.slice((pageNo-1)*OPT.pageSize,pageNo*OPT.pageSize);
-  // console.log(articles_show)
   
   //处理文章属性（年月日、url等）
   processArticleProp(articles_show);
 
-  // console.log(url.pathname)
   let url_prefix = url.pathname.replace(/(.*)\/page\/\d+/,'$1/')
   if(url_prefix.substr(-1)=='/'){
     url_prefix=url_prefix.substr(0,url_prefix.length-1);
   }
-  // console.log(url_prefix)
+  
   //组装各种参数
   let newer=[{title:"上一页",url:url_prefix+"/page/"+(pageNo-1)}];
   if(1==pageNo){
@@ -704,8 +700,6 @@ async function renderBlog(url){
   if(pageNo*OPT.pageSize>=articles.length){
     older=[];
   }
-  // console.log(newer)
-  // console.log(older)
 
   //文章标题、关键字
   let title=(pageNo>1 ? "page "+pageNo+" - " : "")+OPT.siteName,
@@ -737,51 +731,62 @@ async function renderBlog(url){
 
 //渲染前端博客的文章内容页
 async function handle_article(id){
-  //获取内容页模板源码
-  let theme_html=await getThemeHtml("article"),
-      //KV中读取导航栏、分类目录、标签、链接、近期文章等配置信息
-      menus=await getWidgetMenu(),
-      categories=await getWidgetCategory(),
-      tags=await getWidgetTags(),
-      links=await getWidgetLink(),
-      articles_recently=await getRecentlyArticles();
+    // 获取文章信息和内容页模板源码
+    let currentArticle = await getArticle(id),
+        theme_html = await getThemeHtml("article"),
+        //KV中读取导航栏、分类目录、标签、链接、近期文章等配置信息
+        menus = await getWidgetMenu(),
+        categories = await getWidgetCategory(),
+        tags = await getWidgetTags(),
+        links = await getWidgetLink(),
+        articles_recently = await getRecentlyArticles();
+    
+    // 如果文章不存在或已隐藏，返回404
+    if(!currentArticle || currentArticle.hidden) {
+        return new Response(OPT.html404,{
+            headers:{
+                "content-type":"text/html;charset=UTF-8"
+            },
+            status:404
+        });
+    }
 
-  //获取上篇、本篇、下篇文章
-  let articles_sibling=await getSiblingArticle(id);
-  
-  //处理文章属性（年月日、url等）
-  processArticleProp(articles_sibling);
-  
-  //获取本篇文章
-  let article=articles_sibling[1];
+    //获取上篇、本篇、下篇文章
+    let articles_sibling = await getSiblingArticle(id);
+    
+    //处理文章属性（年月日、url等）
+    processArticleProp(articles_sibling);
+    
+    //获取本篇文章
+    let article = articles_sibling[1];
 
-  //组装文章详情页各参数
-  let title=article.title.replace(nullToEmpty(OPT.top_flag),'').replace(nullToEmpty(OPT.hidden_flag),'')+" - "+OPT.siteName, 
-      keyWord=article.tags.concat(article.category).join(","),
-      cfg={};
-  cfg.widgetMenuList=menus,//导航
-  cfg.widgetCategoryList=categories,//分类目录
-  cfg.widgetTagsList=tags,//标签
-  cfg.widgetLinkList=links,//链接
-  cfg.widgetRecentlyList=articles_recently,//近期文章
-  cfg.articleOlder=articles_sibling[0]?[articles_sibling[0]]:[],//上篇文章
-  cfg.articleSingle=article,//本篇文章
-  cfg.articleNewer=articles_sibling[2]?[articles_sibling[2]]:[],//下篇文章
-  cfg.title=title,//网页title
-  cfg.keyWords=keyWord;//SEO关键字
-  
-  //使用mustache.js渲染页面（参数替换）
-  cfg.OPT=OPT
-  
-  let html = Mustache.render(theme_html,cfg)
+    //组装文章详情页各参数
+    let title = article.title.replace(nullToEmpty(OPT.top_flag),'').replace(nullToEmpty(OPT.hidden_flag),'')+" - "+OPT.siteName, 
+        keyWord = article.tags.concat(article.category).join(","),
+        cfg = {};
+    cfg.widgetMenuList = menus,//导航
+    cfg.widgetCategoryList = categories,//分类目录
+    cfg.widgetTagsList = tags,//标签
+    cfg.widgetLinkList = links,//链接
+    cfg.widgetRecentlyList = articles_recently,//近期文章
+    cfg.articleOlder = articles_sibling[0]?[articles_sibling[0]]:[],//上篇文章
+    cfg.articleSingle = article,//本篇文章
+    cfg.articleNewer = articles_sibling[2]?[articles_sibling[2]]:[],//下篇文章
+    cfg.title = title,//网页title
+    cfg.keyWords = keyWord;//SEO关键字
+    
+    //使用mustache.js渲染页面（参数替换）
+    cfg.OPT = OPT
+    
+    let html = Mustache.render(theme_html,cfg)
 
-  //以html格式返回
-  return new Response(html,{
-    headers:{
-      "content-type":"text/html;charset=UTF-8"
-    },
-    status:200
-  })
+    //以html格式返回
+    return new Response(html,{
+        headers:{
+            "content-type":"text/html;charset=UTF-8"
+        },
+        status:200
+    })
 }
 
 //后台请求处理
@@ -1052,9 +1057,9 @@ async function handle_admin(request){
   if("search.xml"===paths[1]){
     console.log("开始导出");
     //读取文章列表，并按照特定的xml格式进行组装
-    let articles_all=await getArticlesList()
+    let articles_all = await getArticlesList(); // 使用过滤后的文章列表
     let xml='<?xml version="1.0" encoding="UTF-8"?>\n<blogs>';
-    for(var i=0;i<articles_all.length;i++){
+    for(var i=0; i<articles_all.length; i++){
       xml+="\n\t<blog>",
       xml+="\n\t\t<title>"+articles_all[i].title+"</title>";
       let article = await getArticle(articles_all[i].id);
@@ -1616,15 +1621,26 @@ async function getThemeHtml(template_path){
 async function getSiblingArticle(id){
     id=("00000"+parseInt(id)).substr(-6);
     //读取文章列表，查找指定id的文章
-    let articles_all=await getArticlesList(),
-        article_idx=-1;
-    for(var i=0,len=articles_all.length;i<len;i++)
-      if(articles_all[i].id==id){
-          article_idx=i;
-          break
-      }
-    let value=await getArticle(id);
-    return null==value||0===value.length?[void 0,void 0,void 0]:[articles_all[article_idx-1],value,articles_all[article_idx+1]]
+    let articles_all = await getArticlesList(), // 这里已经过滤掉了隐藏文章
+        article_idx = -1;
+    
+    // 获取文章内容
+    let value = await getArticle(id);
+    
+    // 如果文章不存在或已隐藏，返回空数组
+    if(null == value || value.hidden) {
+        return [void 0, void 0, void 0];
+    }
+    
+    // 查找当前文章在列表中的位置
+    for(var i = 0, len = articles_all.length; i < len; i++) {
+        if(articles_all[i].id == id) {
+            article_idx = i;
+            break;
+        }
+    }
+    
+    return [articles_all[article_idx-1], value, articles_all[article_idx+1]];
 }
 
 //清除缓存
