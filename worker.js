@@ -16,7 +16,7 @@ const ACCOUNT = { //账号相关，安全性更高
 const OPT = { //网站配置
 
   /*--前台参数--*/
-  "siteDomain" : "example.com",// 域名(不带https 也不带/)
+  "siteDomain" : "blog.cuger.nyc.mn",// 域名(不带https 也不带/)
   "siteName" : "CFBLOG-Plus",//博客名称
   "siteDescription":"CFBLOG-Plus" ,//博客描述
   "keyWords":"cloudflare,KV,workers,blog",//关键字
@@ -188,7 +188,7 @@ const OPT = { //网站配置
   "otherCodeC":``,//
   "otherCodeD":``,//
   "otherCodeE":``,//
-  "copyRight" :`Powered by <a href="https://www.cloudflare.com">Cloudflare</a> & <a href="https://blog.arrontg.cf">CFBlog-Plus</a> & <a href="https://blog.gezhong.vip">CF-Blog </a>`,//自定义版权信息,建议保留大公无私的 Coudflare 和 作者 的链接
+  "copyRight" :`Powered by <a href="https://www.cloudflare.com">Cloudflare</a>`,//自定义版权信息,建议保留大公无私的 Coudflare 和 作者 的链接
   "robots":`User-agent: *
 Disallow: /admin`,//robots.txt设置
   
@@ -288,6 +288,53 @@ Disallow: /admin`,//robots.txt设置
     if($('#img').val()=="")$('#img').val('https://cdn.jsdelivr.net/gh/Arronlong/cdn@master/cfblog/cfblog-plus.png');
     //默认时间设置为当前时间
     if($('#createDate').val()=="")$('#createDate').val(new Date(new Date().getTime()+8*60*60*1000).toJSON().substr(0,16));
+    
+    // 添加导入功能的处理代码
+    $(document).ready(function() {
+      // 导入按钮点击处理
+      $('#btn_import').click(function(e) {
+        e.preventDefault();
+        let importJson = $('#importJson').val().trim();
+        if(!importJson) {
+          alert('请输入要导入的JSON数据');
+          return;
+        }
+        
+        // 显示导入中状态
+        let $btn = $(this);
+        $btn.prop('disabled', true).text('导入中...');
+        
+        // 发送导入请求
+        fetch('/admin/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([{
+            name: 'importJson',
+            value: importJson
+          }])
+        })
+        .then(response => response.json())
+        .then(data => {
+          if(data.status === 'success') {
+            alert(data.message);
+            // 导入成功后刷新页面
+            window.location.reload();
+          } else {
+            alert('导入失败：' + (data.message || '未知错误'));
+          }
+        })
+        .catch(error => {
+          console.error('导入出错:', error);
+          alert('导入出错，请查看控制台');
+        })
+        .finally(() => {
+          // 恢复按钮状态
+          $btn.prop('disabled', false).text('导入');
+        });
+      });
+    });
 `, //后台编辑页面脚本
 
 };
@@ -842,20 +889,133 @@ async function handle_admin(request){
   
   //导入
   if("import"==paths[1]){
-    let importJsone=(await parseReq(request)).importJson;
-    console.log("开始导入",typeof importJson)
-    
-    if(checkFormat(importJson)){
-      let importJson=JSON.parse(importJson),
-          keys=Object.keys(importJson);
-      for(let i=0;i<keys.length;++i){
-        console.log(keys[i],importJson[keys[i]]),
-        await saveArticle(keys[i],importJson[keys[i]]);
+    try {
+      const ret = await parseReq(request);
+      let importJson = ret.importJson;
+      console.log("开始导入", typeof importJson);
+      
+      if(checkFormat(importJson)){
+        let importData = JSON.parse(importJson);
+        let keys = Object.keys(importData);
+        let successCount = 0;
+        let maxId = 0;
+        
+        // 处理系统配置（如果存在）
+        if(importData.OPT) {
+          // 导入分类
+          if(importData.OPT.widgetCategory) {
+            await saveWidgetCategory(JSON.stringify(importData.OPT.widgetCategory));
+          }
+          // 导入菜单
+          if(importData.OPT.widgetMenu) {
+            await saveWidgetMenu(JSON.stringify(importData.OPT.widgetMenu));
+          }
+          // 导入链接
+          if(importData.OPT.widgetLink) {
+            await saveWidgetLink(JSON.stringify(importData.OPT.widgetLink));
+          }
+          
+          // 如果导入的数据中包含SYSTEM_VALUE开头的配置
+          for(let key of keys) {
+            if(key.startsWith('SYSTEM_VALUE_')) {
+              await saveKV(key, JSON.stringify(importData[key]));
+            }
+          }
+        }
+        
+        // 获取当前文章列表
+        let currentArticles = await getAllArticlesList() || [];
+        let newArticles = [];
+        
+        // 处理每篇文章
+        for(let i=0; i<keys.length; i++){
+          // 跳过系统配置和系统值
+          if(keys[i] === 'OPT' || keys[i].startsWith('SYSTEM_VALUE_')) continue;
+          
+          let article = importData[keys[i]];
+          if(!article || !article.id) continue;
+          
+          try {
+            // 保存文章内容
+            await saveArticle(article.id, JSON.stringify(article));
+            
+            // 更新最大ID
+            let currentId = parseInt(article.id);
+            if(!isNaN(currentId) && currentId > maxId) {
+              maxId = currentId;
+            }
+            
+            // 构建文章列表对象
+            let articleListItem = {
+              id: article.id,
+              title: article.title,
+              img: article.img || '',
+              link: article.link || '',
+              createDate: article.createDate,
+              category: article.category || [],
+              tags: article.tags || [],
+              contentText: article.contentText || '',
+              priority: article.priority || '0.5',
+              top_timestamp: article.top_timestamp || 0,
+              modify_timestamp: article.modify_timestamp || new Date().getTime(),
+              hidden: article.hidden || 0,
+              changefreq: article.changefreq || 'daily'
+            };
+            
+            newArticles.push(articleListItem);
+            successCount++;
+          } catch(e) {
+            console.error("导入单篇文章失败:", article.id, e);
+          }
+        }
+        
+        // 合并文章列表并去重
+        let mergedArticles = currentArticles.filter(current => 
+          !newArticles.some(newArticle => newArticle.id === current.id)
+        );
+        mergedArticles = mergedArticles.concat(newArticles);
+        
+        // 排序文章列表
+        mergedArticles = sortArticle(mergedArticles);
+        
+        // 保存更新后的文章列表
+        await saveArticlesList(JSON.stringify(mergedArticles));
+        
+        // 获取当前的序号
+        let currentIndexNum = await getIndexNum();
+        currentIndexNum = parseInt(currentIndexNum);
+        
+        // 确保maxId大于当前序号
+        if(!isNaN(currentIndexNum) && currentIndexNum > maxId) {
+          maxId = currentIndexNum;
+        }
+        
+        // 保存新的序号
+        console.log("更新文章序号为:", maxId);
+        await saveIndexNum(maxId);
+        
+        // 清理缓存
+        await purge();
+        
+        json = JSON.stringify({
+          status: "success",
+          message: `成功导入 ${successCount} 篇文章，系统配置已更新`,
+          totalArticles: mergedArticles.length,
+          newIndexNum: maxId
+        });
+      } else {
+        json = JSON.stringify({
+          status: "error",
+          message: "导入的JSON格式不正确"
+        });
       }
-      json = '{"msg":"import success!","rst":true}'
-    }else{
-      json = '{"msg":" importJson Not a JSON object","rst":false}'
-    }        
+    } catch(e) {
+      console.error("导入处理出错:", e);
+      json = JSON.stringify({
+        status: "error",
+        message: "导入处理失败: " + e.message
+      });
+    }
   }
   
   //导出
@@ -1384,11 +1544,11 @@ function renderLoginPage(showError) {
 async function getArticlesList(){
   let articles_all = await getAllArticlesList();
   
-  for(var i=0;i<articles_all.length;i++)
-    if(articles_all[i].hidden){
-        articles_all.splice(i,1);
-    }
-  return articles_all;
+  // 过滤掉隐藏的文章
+  return articles_all.filter(article => {
+    // 确保article存在且hidden属性为0或undefined/null
+    return article && !article.hidden;
+  });
 }
 
 //文章排序：先按id倒排，再按置顶时间倒排
@@ -1419,21 +1579,24 @@ async function getRecentlyArticles(articles){
 
 //处理文章的属性信息：日期(yyyy-MM-dd)、年、月、日、内容长度和url
 function processArticleProp(articles){
-    for(var i=0;i<articles.length;i++){
-        //调整文章的日期(yyyy-MM-dd)、文章长度和url
-        if(articles[i]){
-            if(articles[i].top_timestamp && !articles[i].title.startsWith(OPT.top_flag)){
-              articles[i].title = OPT.top_flag + articles[i].title
-            }
-            //调整文章的日期(yyyy-MM-dd)、年、月、日、内容长度和url
-            articles[i].createDate10=articles[i].createDate.substr(0,10),
-            articles[i].createDateYear=articles[i].createDate.substr(0,4),
-            articles[i].createDateMonth=articles[i].createDate.substr(5,7),
-            articles[i].createDateDay=articles[i].createDate.substr(8,10),
-            articles[i].contentLength=articles[i].contentText.length,
-            articles[i].url="/article/"+articles[i].id+"/"+articles[i].link+".html";
-        }
+  for(var i=0;i<articles.length;i++){
+    //调整文章的日期(yyyy-MM-dd)、文章长度和url
+    if(articles[i]){
+      // 添加置顶标记
+      if(articles[i].top_timestamp && !articles[i].title.startsWith(OPT.top_flag)){
+        articles[i].title = OPT.top_flag + articles[i].title;
+      }
+      // 不在这里添加隐藏标记，因为隐藏的文章不应该在前台显示
+      
+      //调整文章的日期(yyyy-MM-dd)、年、月、日、内容长度和url
+      articles[i].createDate10=articles[i].createDate.substr(0,10),
+      articles[i].createDateYear=articles[i].createDate.substr(0,4),
+      articles[i].createDateMonth=articles[i].createDate.substr(5,7),
+      articles[i].createDateDay=articles[i].createDate.substr(8,10),
+      articles[i].contentLength=articles[i].contentText.length,
+      articles[i].url="/article/"+articles[i].id+"/"+articles[i].link+".html";
     }
+  }
 }
 
 //获取前台模板源码, template_path:模板的相对路径
@@ -1499,19 +1662,21 @@ async function purge(cacheZoneId=ACCOUNT.cacheZoneId, cacheToken=ACCOUNT.cacheTo
 
 //后台文章列表页的分页加载，返回[文章列表,是否无下一页]
 async function admin_nextPage(pageNo,pageSize=OPT.pageSize){
-    pageNo=pageNo<=1?1:pageNo;
-    let articles_all=await getAllArticlesList(),
-        articles=[];
-    for(var i=(pageNo-1)*pageSize,s=Math.min(pageNo*pageSize,articles_all.length);i<s;i++){
-      if(articles_all[i].top_timestamp && !articles_all[i].title.startsWith(OPT.top_flag)){
-        articles_all[i].title = OPT.top_flag + articles_all[i].title
-      }
-      if(articles_all[i].hidden && !articles_all[i].title.startsWith(OPT.hidden_flag)){
-        articles_all[i].title = OPT.hidden_flag + articles_all[i].title
-      }
-      articles.push(articles_all[i]);
+  pageNo=pageNo<=1?1:pageNo;
+  let articles_all=await getAllArticlesList(),
+      articles=[];
+  for(var i=(pageNo-1)*pageSize,s=Math.min(pageNo*pageSize,articles_all.length);i<s;i++){
+    // 添加置顶标记
+    if(articles_all[i].top_timestamp && !articles_all[i].title.startsWith(OPT.top_flag)){
+      articles_all[i].title = OPT.top_flag + articles_all[i].title;
     }
-    return articles
+    // 添加隐藏标记
+    if(articles_all[i].hidden && !articles_all[i].title.startsWith(OPT.hidden_flag)){
+      articles_all[i].title = OPT.hidden_flag + articles_all[i].title;
+    }
+    articles.push(articles_all[i]);
+  }
+  return articles;
 }
 
 //解析后台请求的参数
