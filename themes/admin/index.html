@@ -9,12 +9,15 @@
   <script src="https://cdn.staticfile.org/jquery/2.2.4/jquery.min.js"></script>
   <script src="https://cdn.staticfile.org/twitter-bootstrap/3.4.1/js/bootstrap.min.js"></script>
   <style>
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
     body { background: #f7f8fa; font-family: 'PingFang SC','Microsoft YaHei',Arial,sans-serif; }
-    .navbar { border-radius: 0; margin-bottom: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);}
+    .navbar { border-radius: 0; margin-bottom: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
     .navbar-brand { font-weight: bold; color: #007aff !important; }
-    .sidebar { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 0; }
+    .main-layout { display: flex; height: 100vh; padding-top: 60px; }
+    .sidebar { width: 220px; background: #fff; height: 100vh; position: fixed; left: 0; top: 60px; bottom: 0; overflow-y: auto; z-index: 10; border-radius: 0 12px 12px 0; box-shadow: 0 2px 12px rgba(0,0,0,0.06);}
     .sidebar .nav > li > a { color: #333; font-size: 16px; border-radius: 0 20px 20px 0; }
     .sidebar .nav > li.active > a, .sidebar .nav > li > a:hover { background: #f0f4fa; color: #007aff; }
+    .content-area { margin-left: 220px; margin-top: 60px; height: calc(100vh - 60px); overflow-y: auto; background: #f7f8fa; padding: 32px 28px; width: calc(100vw - 220px);}
     .main-panel { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 32px 28px; min-height: 600px;}
     .panel-title { font-size: 22px; font-weight: 700; color: #007aff; margin-bottom: 24px; }
     .btn-primary { background: #007aff; border-color: #007aff; }
@@ -27,6 +30,7 @@
     @media (max-width: 900px) {
       .sidebar { margin-bottom: 18px; }
       .main-panel { padding: 18px 8px; }
+      .content-area { padding: 12px 4px; }
     }
   </style>
 </head>
@@ -44,19 +48,17 @@
       </ul>
     </div>
   </nav>
-  <div class="container-fluid" style="margin-top:32px;">
-    <div class="row">
-      <!-- 左侧菜单 -->
-      <div class="col-sm-3 col-md-2 sidebar">
-        <ul class="nav nav-pills nav-stacked" id="myTab">
-          <li class="active"><a href="#list" data-toggle="tab">我的文章</a></li>
-          <li><a href="#new" data-toggle="tab">新建文章</a></li>
-          <li><a href="#setting" data-toggle="tab">设置</a></li>
-          <li><a href="#publish" data-toggle="tab">发布/导入导出</a></li>
-        </ul>
-      </div>
-      <!-- 右侧内容区 -->
-      <div class="col-sm-9 col-md-10 main-panel tab-content">
+  <div class="main-layout">
+    <div class="sidebar">
+      <ul class="nav nav-pills nav-stacked" id="myTab">
+        <li class="active"><a href="#list" data-toggle="tab">我的文章</a></li>
+        <li><a href="#new" data-toggle="tab">新建文章</a></li>
+        <li><a href="#setting" data-toggle="tab">设置</a></li>
+        <li><a href="#publish" data-toggle="tab">发布/导入导出</a></li>
+      </ul>
+    </div>
+    <div class="content-area">
+      <div class="main-panel tab-content">
         <!-- 文章列表 -->
         <div class="tab-pane fade in active" id="list">
           <div class="panel-title">文章管理</div>
@@ -155,26 +157,6 @@
           }
         });
       }
-    });
-    // 新建文章按钮
-    $('#btnAddNew').click(function(){
-      $('#myTab a[href="#new"]').tab('show');
-    });
-    // 导出JSON
-    $('#btnExport').click(function(){
-      window.open('/admin/export');
-    });
-    // 导出sitemap.xml
-    $('#btnExportSitemap').click(function(){
-      window.open('/admin/sitemap.xml');
-    });
-    // 导出search.xml
-    $('#btnExportSearch').click(function(){
-      window.open('/admin/search.xml');
-    });
-    // 导入JSON
-    $('#btnImport').click(function(){
-      $('#importFile').click();
     });
     $('#importFile').change(function(e){
       let file = e.target.files[0];
