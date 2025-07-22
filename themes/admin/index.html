@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>后台管理 - {{OPT.siteName}}</title>
+  <link rel="icon" href="{{OPT.logo}}">
+  <style>
+    body {
+      margin: 0;
+      background: #f7f8fa;
+      font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+      color: #222;
+    }
+    .admin-navbar {
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .admin-navbar .logo {
+      display: flex;
+      align-items: center;
+      font-size: 22px;
+      font-weight: bold;
+      color: #007aff;
+      text-decoration: none;
+    }
+    .admin-navbar .logo img {
+      height: 32px;
+      margin-right: 8px;
+      border-radius: 8px;
+    }
+    .admin-navbar .nav {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .admin-navbar .nav a {
+      color: #333;
+      font-size: 15px;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .admin-navbar .nav a:hover, .admin-navbar .nav .active {
+      background: #007aff;
+      color: #fff;
+    }
+    .admin-container {
+      display: flex;
+      max-width: 1200px;
+      margin: 32px auto 0 auto;
+      gap: 28px;
+      padding: 0 16px;
+    }
+    .admin-sidebar {
+      width: 200px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      padding: 24px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 140px;
+    }
+    .admin-sidebar a {
+      color: #333;
+      text-decoration: none;
+      font-size: 16px;
+      padding: 12px 32px;
+      border-radius: 0 20px 20px 0;
+      transition: background 0.2s, color 0.2s;
+    }
+    .admin-sidebar a:hover, .admin-sidebar .active {
+      background: #f0f4fa;
+      color: #007aff;
+    }
+    .admin-main {
+      flex: 1 1 0;
+      min-width: 0;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      padding: 32px 28px;
+    }
+    .admin-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #007aff;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+    .admin-btn {
+      background: #007aff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 22px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 18px;
+      transition: background 0.2s;
+    }
+    .admin-btn:hover {
+      background: #005ecb;
+    }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    .admin-table th, .admin-table td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #f0f0f0;
+      text-align: left;
+      font-size: 15px;
+    }
+    .admin-table th {
+      color: #007aff;
+      background: #f7f8fa;
+    }
+    .admin-table tr:hover {
+      background: #f0f4fa;
+    }
+    .admin-form input, .admin-form select, .admin-form textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 7px;
+      font-size: 15px;
+      margin-bottom: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .admin-form input:focus, .admin-form select:focus, .admin-form textarea:focus {
+      border: 1.5px solid #007aff;
+    }
+    @media (max-width: 900px) {
+      .admin-container {
+        flex-direction: column;
+        gap: 0;
+      }
+      .admin-sidebar {
+        width: 100%;
+        flex-direction: row;
+        border-radius: 12px 12px 0 0;
+        padding: 12px 0;
+        margin-bottom: 18px;
+      }
+      .admin-main {
+        padding: 18px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-navbar">
+    <a class="logo" href="/"><img src="{{OPT.logo}}" alt="logo">{{OPT.siteName}}</a>
+    <nav class="nav">
+      <a href="/" target="_blank">博客首页</a>
+      <a href="/admin" class="active">后台管理</a>
+      <a href="/logout">退出</a>
+    </nav>
+  </div>
+  <div class="admin-container">
+    <aside class="admin-sidebar">
+      <a href="#list" class="active">我的文章</a>
+      <a href="#new">新建文章</a>
+      <a href="#setting">设置</a>
+      <a href="#publish">发布</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-title">欢迎使用 {{OPT.siteName}} 博客后台</div>
+      <!-- 这里插入后台管理的实际内容，如文章列表、编辑表单等 -->
+      <!-- 你可以用 Mustache 变量和循环渲染后台数据 -->
+      <button class="admin-btn" onclick="location.hash='#new'">+ 新建文章</button>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>标题</th>
+            <th>分类</th>
+            <th>标签</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#articleList}}
+          <tr>
+            <td><a href="/admin/edit/{{id}}">{{title}}</a></td>
+            <td>{{category.0}}</td>
+            <td>{{#tags}}{{.}} {{/tags}}</td>
+            <td>{{createDate10}}</td>
+            <td>
+              <a href="/admin/edit/{{id}}" style="color:#007aff;">编辑</a>
+              <a href="/admin/delete/{{id}}" style="color:#d93026;margin-left:10px;" onclick="return confirm('确定要删除吗？')">删除</a>
+            </td>
+          </tr>
+          {{/articleList}}
+        </tbody>
+      </table>
+      <!-- 你可以继续添加分页、表单、设置等内容 -->
+    </main>
+  </div>
+</body>
+</html>
