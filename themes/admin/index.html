@@ -2,215 +2,195 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <title>{{OPT.siteName}} 博客后台</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>后台管理 - {{OPT.siteName}}</title>
   <link rel="icon" href="{{OPT.logo}}">
+  <!-- Bootstrap & jQuery -->
+  <link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://cdn.staticfile.org/jquery/2.2.4/jquery.min.js"></script>
+  <script src="https://cdn.staticfile.org/twitter-bootstrap/3.4.1/js/bootstrap.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      background: #f7f8fa;
-      font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
-      color: #222;
-    }
-    .admin-navbar {
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 32px;
-      height: 60px;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    .admin-navbar .logo {
-      display: flex;
-      align-items: center;
-      font-size: 22px;
-      font-weight: bold;
-      color: #007aff;
-      text-decoration: none;
-    }
-    .admin-navbar .logo img {
-      height: 32px;
-      margin-right: 8px;
-      border-radius: 8px;
-    }
-    .admin-navbar .nav {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-    .admin-navbar .nav a {
-      color: #333;
-      font-size: 15px;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      transition: background 0.2s, color 0.2s;
-    }
-    .admin-navbar .nav a:hover, .admin-navbar .nav .active {
-      background: #007aff;
-      color: #fff;
-    }
-    .admin-container {
-      display: flex;
-      max-width: 1200px;
-      margin: 32px auto 0 auto;
-      gap: 28px;
-      padding: 0 16px;
-    }
-    .admin-sidebar {
-      width: 200px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-      padding: 24px 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-width: 140px;
-    }
-    .admin-sidebar a {
-      color: #333;
-      text-decoration: none;
-      font-size: 16px;
-      padding: 12px 32px;
-      border-radius: 0 20px 20px 0;
-      transition: background 0.2s, color 0.2s;
-    }
-    .admin-sidebar a:hover, .admin-sidebar .active {
-      background: #f0f4fa;
-      color: #007aff;
-    }
-    .admin-main {
-      flex: 1 1 0;
-      min-width: 0;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-      padding: 32px 28px;
-    }
-    .admin-title {
-      font-size: 22px;
-      font-weight: 700;
-      color: #007aff;
-      margin-bottom: 24px;
-      letter-spacing: 1px;
-    }
-    .admin-btn {
-      background: #007aff;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 22px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-bottom: 18px;
-      transition: background 0.2s;
-    }
-    .admin-btn:hover {
-      background: #005ecb;
-    }
-    .admin-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 24px;
-    }
-    .admin-table th, .admin-table td {
-      padding: 12px 8px;
-      border-bottom: 1px solid #f0f0f0;
-      text-align: left;
-      font-size: 15px;
-    }
-    .admin-table th {
-      color: #007aff;
-      background: #f7f8fa;
-    }
-    .admin-table tr:hover {
-      background: #f0f4fa;
-    }
-    .admin-form input, .admin-form select, .admin-form textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #e0e0e0;
-      border-radius: 7px;
-      font-size: 15px;
-      margin-bottom: 14px;
-      outline: none;
-      transition: border 0.2s;
-    }
-    .admin-form input:focus, .admin-form select:focus, .admin-form textarea:focus {
-      border: 1.5px solid #007aff;
-    }
+    body { background: #f7f8fa; font-family: 'PingFang SC','Microsoft YaHei',Arial,sans-serif; }
+    .navbar { border-radius: 0; margin-bottom: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);}
+    .navbar-brand { font-weight: bold; color: #007aff !important; }
+    .sidebar { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 0; }
+    .sidebar .nav > li > a { color: #333; font-size: 16px; border-radius: 0 20px 20px 0; }
+    .sidebar .nav > li.active > a, .sidebar .nav > li > a:hover { background: #f0f4fa; color: #007aff; }
+    .main-panel { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 32px 28px; min-height: 600px;}
+    .panel-title { font-size: 22px; font-weight: 700; color: #007aff; margin-bottom: 24px; }
+    .btn-primary { background: #007aff; border-color: #007aff; }
+    .btn-primary:hover { background: #005ecb; border-color: #005ecb; }
+    .table > thead > tr > th { color: #007aff; background: #f7f8fa; }
+    .table > tbody > tr:hover { background: #f0f4fa; }
+    .form-control:focus { border-color: #007aff; box-shadow: 0 0 0 2px rgba(0,122,255,0.08);}
+    .tab-content > .tab-pane { margin-top: 18px; }
+    .import-export-btns { margin-bottom: 18px; }
     @media (max-width: 900px) {
-      .admin-container {
-        flex-direction: column;
-        gap: 0;
-      }
-      .admin-sidebar {
-        width: 100%;
-        flex-direction: row;
-        border-radius: 12px 12px 0 0;
-        padding: 12px 0;
-        margin-bottom: 18px;
-      }
-      .admin-main {
-        padding: 18px 8px;
-      }
+      .sidebar { margin-bottom: 18px; }
+      .main-panel { padding: 18px 8px; }
     }
   </style>
 </head>
 <body>
-  <div class="admin-navbar">
-    <a class="logo" href="/"><img src="{{OPT.logo}}" alt="logo">{{OPT.siteName}}</a>
-    <nav class="nav">
-      <a href="/" target="_blank">博客首页</a>
-      <a href="/admin" class="active">后台管理</a>
-      <a href="/logout">退出</a>
-    </nav>
+  <!-- 顶部导航 -->
+  <nav class="navbar navbar-default">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="/"><img src="{{OPT.logo}}" style="height:32px;display:inline;margin-right:8px;border-radius:8px;">{{OPT.siteName}}</a>
+      </div>
+      <ul class="nav navbar-nav navbar-right">
+        <li><a href="/" target="_blank">博客首页</a></li>
+        <li class="active"><a href="/admin">后台管理</a></li>
+        <li><a href="/logout">退出</a></li>
+      </ul>
+    </div>
+  </nav>
+  <div class="container-fluid" style="margin-top:32px;">
+    <div class="row">
+      <!-- 左侧菜单 -->
+      <div class="col-sm-3 col-md-2 sidebar">
+        <ul class="nav nav-pills nav-stacked" id="myTab">
+          <li class="active"><a href="#list" data-toggle="tab">我的文章</a></li>
+          <li><a href="#new" data-toggle="tab">新建文章</a></li>
+          <li><a href="#setting" data-toggle="tab">设置</a></li>
+          <li><a href="#publish" data-toggle="tab">发布</a></li>
+        </ul>
+      </div>
+      <!-- 右侧内容区 -->
+      <div class="col-sm-9 col-md-10 main-panel tab-content">
+        <!-- 文章列表 -->
+        <div class="tab-pane fade in active" id="list">
+          <div class="panel-title">欢迎使用 {{OPT.siteName}} 博客后台</div>
+          <div class="import-export-btns">
+            <button class="btn btn-primary" id="btnAddNew">+ 新建文章</button>
+            <button class="btn btn-default" id="btnExport">导出JSON</button>
+            <button class="btn btn-default" id="btnExportSitemap">导出sitemap.xml</button>
+            <button class="btn btn-default" id="btnExportSearch">导出search.xml</button>
+            <button class="btn btn-default" id="btnImport">导入JSON</button>
+            <input type="file" id="importFile" style="display:none;">
+          </div>
+          <table class="table table-hover" style="margin-top:18px;">
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>分类</th>
+                <th>标签</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="articleList">
+              <!-- 文章列表由 JS 渲染 -->
+            </tbody>
+          </table>
+          <nav>
+            <ul class="pagination" id="pagination"></ul>
+          </nav>
+        </div>
+        <!-- 新建文章 -->
+        <div class="tab-pane fade" id="new">
+          <iframe src="/admin/edit" style="width:100%;height:800px;border:none;border-radius:8px;background:#fff;"></iframe>
+        </div>
+        <!-- 设置 -->
+        <div class="tab-pane fade" id="setting">
+          <iframe src="/admin/setting" style="width:100%;height:800px;border:none;border-radius:8px;background:#fff;"></iframe>
+        </div>
+        <!-- 发布 -->
+        <div class="tab-pane fade" id="publish">
+          <iframe src="/admin/publish" style="width:100%;height:800px;border:none;border-radius:8px;background:#fff;"></iframe>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="admin-container">
-    <aside class="admin-sidebar">
-      <a href="#list" class="active">我的文章</a>
-      <a href="#new">新建文章</a>
-      <a href="#setting">设置</a>
-      <a href="#publish">发布</a>
-    </aside>
-    <main class="admin-main">
-      <div class="admin-title">欢迎使用 {{OPT.siteName}} 博客后台</div>
-      <!-- 这里插入后台管理的实际内容，如文章列表、编辑表单等 -->
-      <!-- 你可以用 Mustache 变量和循环渲染后台数据 -->
-      <button class="admin-btn" onclick="location.hash='#new'">+ 新建文章</button>
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>标题</th>
-            <th>分类</th>
-            <th>标签</th>
-            <th>创建时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{#articleList}}
-          <tr>
-            <td><a href="/admin/edit/{{id}}">{{title}}</a></td>
-            <td>{{category.0}}</td>
-            <td>{{#tags}}{{.}} {{/tags}}</td>
-            <td>{{createDate10}}</td>
-            <td>
-              <a href="/admin/edit/{{id}}" style="color:#007aff;">编辑</a>
-              <a href="/admin/delete/{{id}}" style="color:#d93026;margin-left:10px;" onclick="return confirm('确定要删除吗？')">删除</a>
-            </td>
-          </tr>
-          {{/articleList}}
-        </tbody>
-      </table>
-      <!-- 你可以继续添加分页、表单、设置等内容 -->
-    </main>
-  </div>
+  <!-- 文章管理脚本（核心功能） -->
+  <script>
+    // 文章分页与渲染
+    function loadArticleList(page=1) {
+      $.get('/admin/getList/'+page, function(data){
+        let list = typeof data === 'string' ? JSON.parse(data) : data;
+        let html = '';
+        for(let i=0;i<list.length;i++){
+          html += '<tr>';
+          html += '<td><a href="/admin/edit/'+list[i].id+'" target="_blank">'+list[i].title+'</a></td>';
+          html += '<td>'+(list[i].category && list[i].category[0] ? list[i].category[0] : '')+'</td>';
+          html += '<td>'+(list[i].tags ? list[i].tags.join(' ') : '')+'</td>';
+          html += '<td>'+list[i].createDate10+'</td>';
+          html += '<td><a href="/admin/edit/'+list[i].id+'" target="_blank" style="color:#007aff;">编辑</a> <a href="#" class="delete-article" data-id="'+list[i].id+'" style="color:#d93026;margin-left:10px;">删除</a></td>';
+          html += '</tr>';
+        }
+        $('#articleList').html(html);
+        // 分页（假设每页20条，需后端支持返回总数）
+        // 这里可根据实际返回数据调整
+      });
+    }
+    // 删除文章
+    $(document).on('click', '.delete-article', function(e){
+      e.preventDefault();
+      let id = $(this).data('id');
+      if(confirm('确定要删除这篇文章吗？此操作不可恢复！')){
+        $.get('/admin/delete/'+id, function(res){
+          let data = typeof res === 'string' ? JSON.parse(res) : res;
+          if(data.status === 'success'){
+            alert('删除成功');
+            loadArticleList();
+          }else{
+            alert('删除失败：'+(data.message||'未知错误'));
+          }
+        });
+      }
+    });
+    // 新建文章按钮
+    $('#btnAddNew').click(function(){
+      $('#myTab a[href="#new"]').tab('show');
+    });
+    // 导出JSON
+    $('#btnExport').click(function(){
+      window.open('/admin/export');
+    });
+    // 导出sitemap.xml
+    $('#btnExportSitemap').click(function(){
+      window.open('/admin/sitemap.xml');
+    });
+    // 导出search.xml
+    $('#btnExportSearch').click(function(){
+      window.open('/admin/search.xml');
+    });
+    // 导入JSON
+    $('#btnImport').click(function(){
+      $('#importFile').click();
+    });
+    $('#importFile').change(function(e){
+      let file = e.target.files[0];
+      if(!file) return;
+      let reader = new FileReader();
+      reader.onload = function(evt){
+        let content = evt.target.result;
+        $.ajax({
+          url: '/admin/import',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify([{name:'importJson', value: content}]),
+          success: function(res){
+            alert('导入成功');
+            loadArticleList();
+          },
+          error: function(){
+            alert('导入失败');
+          }
+        });
+      };
+      reader.readAsText(file);
+    });
+    // Tab切换时刷新文章列表
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+      if($(e.target).attr('href')==='#list'){
+        loadArticleList();
+      }
+    });
+    // 页面加载时加载文章列表
+    $(function(){
+      loadArticleList();
+    });
+  </script>
 </body>
 </html>
