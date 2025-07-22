@@ -24,11 +24,6 @@
     .form-control:focus { border-color: #007aff; box-shadow: 0 0 0 2px rgba(0,122,255,0.08);}
     .tab-content > .tab-pane { margin-top: 18px; }
     .import-export-btns { margin-bottom: 18px; }
-    .tag-list, .cat-list, .menu-list, .link-list { margin: 0; padding: 0; list-style: none; }
-    .tag-list li, .cat-list li, .menu-list li, .link-list li { display: inline-block; margin: 0 8px 8px 0; background: #f0f4fa; border-radius: 6px; padding: 4px 10px; }
-    .setting-section { margin-bottom: 32px; }
-    .setting-section h4 { color: #007aff; margin-bottom: 12px; }
-    .publish-section { margin-bottom: 32px; }
     @media (max-width: 900px) {
       .sidebar { margin-bottom: 18px; }
       .main-panel { padding: 18px 8px; }
@@ -67,6 +62,7 @@
           <div class="panel-title">文章管理</div>
           <div class="import-export-btns">
             <button class="btn btn-primary" id="btnAddNew">+ 新建文章</button>
+            <button class="btn btn-danger" id="btnBatchDelete">批量删除</button>
             <button class="btn btn-default" id="btnExport">导出JSON</button>
             <button class="btn btn-default" id="btnExportSitemap">导出sitemap.xml</button>
             <button class="btn btn-default" id="btnExportSearch">导出search.xml</button>
@@ -76,6 +72,7 @@
           <table class="table table-hover" style="margin-top:18px;">
             <thead>
               <tr>
+                <th><input type="checkbox" id="checkAll"></th>
                 <th>标题</th>
                 <th>分类</th>
                 <th>标签</th>
@@ -93,111 +90,19 @@
         </div>
         <!-- 新建文章 -->
         <div class="tab-pane fade" id="new">
-          <div class="panel-title">新建文章</div>
-          <form id="addNewForm">
-            <div class="form-group">
-              <label>标题</label>
-              <input type="text" class="form-control" name="title" required>
-            </div>
-            <div class="form-group">
-              <label>分类（用逗号分隔）</label>
-              <input type="text" class="form-control" name="category" required>
-            </div>
-            <div class="form-group">
-              <label>标签（用逗号分隔）</label>
-              <input type="text" class="form-control" name="tags">
-            </div>
-            <div class="form-group">
-              <label>封面图片URL</label>
-              <input type="text" class="form-control" name="img">
-            </div>
-            <div class="form-group">
-              <label>永久链接</label>
-              <input type="text" class="form-control" name="link">
-            </div>
-            <div class="form-group">
-              <label>内容（Markdown）</label>
-              <textarea class="form-control" name="content-markdown-doc" rows="8" required></textarea>
-            </div>
-            <div class="form-group">
-              <label>内容（HTML）</label>
-              <textarea class="form-control" name="content-html-code" rows="8" required></textarea>
-            </div>
-            <div class="form-group">
-              <label>发布日期</label>
-              <input type="datetime-local" class="form-control" name="createDate" required>
-            </div>
-            <div class="form-group">
-              <label>权重</label>
-              <input type="text" class="form-control" name="priority" value="0.5">
-            </div>
-            <div class="form-group">
-              <label>更新频率</label>
-              <input type="text" class="form-control" name="changefreq" value="daily">
-            </div>
-            <div class="form-group">
-              <label>置顶</label>
-              <select class="form-control" name="top_timestamp">
-                <option value="0" selected>否</option>
-                <option value="1">是</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>隐藏</label>
-              <select class="form-control" name="hidden">
-                <option value="0" selected>否</option>
-                <option value="1">是</option>
-              </select>
-            </div>
-            <button type="submit" class="btn btn-primary">发布</button>
-          </form>
+          <iframe src="/admin/edit" style="width:100%;height:800px;border:none;border-radius:8px;background:#fff;"></iframe>
         </div>
         <!-- 设置 -->
         <div class="tab-pane fade" id="setting">
-          <div class="panel-title">设置</div>
-          <div class="setting-section">
-            <h4>分类管理</h4>
-            <ul class="cat-list" id="catList"></ul>
-            <input type="text" class="form-control" id="newCat" placeholder="新分类名">
-            <button class="btn btn-primary" id="addCat">添加分类</button>
-          </div>
-          <div class="setting-section">
-            <h4>菜单管理</h4>
-            <ul class="menu-list" id="menuList"></ul>
-            <input type="text" class="form-control" id="newMenu" placeholder="新菜单名">
-            <button class="btn btn-primary" id="addMenu">添加菜单</button>
-          </div>
-          <div class="setting-section">
-            <h4>链接管理</h4>
-            <ul class="link-list" id="linkList"></ul>
-            <input type="text" class="form-control" id="newLink" placeholder="新链接名">
-            <button class="btn btn-primary" id="addLink">添加链接</button>
-          </div>
-          <div class="setting-section">
-            <h4>标签管理</h4>
-            <ul class="tag-list" id="tagList"></ul>
-            <input type="text" class="form-control" id="newTag" placeholder="新标签名">
-            <button class="btn btn-primary" id="addTag">添加标签</button>
-          </div>
+          <iframe src="/admin/setting" style="width:100%;height:800px;border:none;border-radius:8px;background:#fff;"></iframe>
         </div>
         <!-- 发布/导入导出 -->
         <div class="tab-pane fade" id="publish">
-          <div class="panel-title">发布/导入导出</div>
-          <div class="publish-section">
-            <button class="btn btn-primary" id="btnPublish">发布所有文章（整理标签并清理缓存）</button>
-          </div>
-          <div class="publish-section">
-            <button class="btn btn-default" id="btnExport2">导出JSON</button>
-            <button class="btn btn-default" id="btnExportSitemap2">导出sitemap.xml</button>
-            <button class="btn btn-default" id="btnExportSearch2">导出search.xml</button>
-            <button class="btn btn-default" id="btnImport2">导入JSON</button>
-            <input type="file" id="importFile2" style="display:none;">
-          </div>
+          <iframe src="/admin/publish" style="width:100%;height:800px;border:none;border-radius:8px;background:#fff;"></iframe>
         </div>
       </div>
     </div>
   </div>
-  <!-- 文章管理脚本（核心功能） -->
   <script>
     // 文章分页与渲染
     function loadArticleList(page=1) {
@@ -206,6 +111,7 @@
         let html = '';
         for(let i=0;i<list.length;i++){
           html += '<tr>';
+          html += '<td><input type="checkbox" class="check-item" value="'+list[i].id+'"></td>';
           html += '<td><a href="/admin/edit/'+list[i].id+'" target="_blank">'+list[i].title+'</a></td>';
           html += '<td>'+(list[i].category && list[i].category[0] ? list[i].category[0] : '')+'</td>';
           html += '<td>'+(list[i].tags ? list[i].tags.join(' ') : '')+'</td>';
@@ -216,6 +122,24 @@
         $('#articleList').html(html);
       });
     }
+    // 全选
+    $('#checkAll').on('change', function(){
+      $('.check-item').prop('checked', this.checked);
+    });
+    // 批量删除
+    $('#btnBatchDelete').click(function(){
+      var ids = $('.check-item:checked').map(function(){ return this.value; }).get();
+      if(ids.length === 0) return alert('请选择要删除的文章');
+      if(confirm('确定要批量删除选中的文章吗？')){
+        var count = 0;
+        ids.forEach(function(id){
+          $.get('/admin/delete/'+id, function(res){
+            count++;
+            if(count === ids.length) loadArticleList();
+          });
+        });
+      }
+    });
     // 删除文章
     $(document).on('click', '.delete-article', function(e){
       e.preventDefault();
@@ -236,43 +160,23 @@
     $('#btnAddNew').click(function(){
       $('#myTab a[href="#new"]').tab('show');
     });
-    // 新建文章表单提交
-    $('#addNewForm').submit(function(e){
-      e.preventDefault();
-      let formData = $(this).serializeArray();
-      $.ajax({
-        url: '/admin/saveAddNew',
-        type: 'POST',
-        data: formData,
-        success: function(res){
-          let data = typeof res === 'string' ? JSON.parse(res) : res;
-          if(data.rst){
-            alert('发布成功');
-            $('#myTab a[href="#list"]').tab('show');
-            loadArticleList();
-          }else{
-            alert('发布失败：'+(data.msg||'未知错误'));
-          }
-        }
-      });
-    });
     // 导出JSON
-    $('#btnExport,#btnExport2').click(function(){
+    $('#btnExport').click(function(){
       window.open('/admin/export');
     });
     // 导出sitemap.xml
-    $('#btnExportSitemap,#btnExportSitemap2').click(function(){
+    $('#btnExportSitemap').click(function(){
       window.open('/admin/sitemap.xml');
     });
     // 导出search.xml
-    $('#btnExportSearch,#btnExportSearch2').click(function(){
+    $('#btnExportSearch').click(function(){
       window.open('/admin/search.xml');
     });
     // 导入JSON
-    $('#btnImport,#btnImport2').click(function(){
-      $(this).next('input[type=file]').click();
+    $('#btnImport').click(function(){
+      $('#importFile').click();
     });
-    $('#importFile,#importFile2').change(function(e){
+    $('#importFile').change(function(e){
       let file = e.target.files[0];
       if(!file) return;
       let reader = new FileReader();
@@ -294,75 +198,10 @@
       };
       reader.readAsText(file);
     });
-    // 设置页：分类、菜单、链接、标签管理（示例，需后端接口支持）
-    function loadSetting() {
-      // 分类
-      $.get('/admin/getCategory', function(data){
-        let list = typeof data === 'string' ? JSON.parse(data) : data;
-        let html = '';
-        for(let i=0;i<list.length;i++){
-          html += '<li>'+list[i]+'</li>';
-        }
-        $('#catList').html(html);
-      });
-      // 菜单
-      $.get('/admin/getMenu', function(data){
-        let list = typeof data === 'string' ? JSON.parse(data) : data;
-        let html = '';
-        for(let i=0;i<list.length;i++){
-          html += '<li>'+list[i]+'</li>';
-        }
-        $('#menuList').html(html);
-      });
-      // 链接
-      $.get('/admin/getLink', function(data){
-        let list = typeof data === 'string' ? JSON.parse(data) : data;
-        let html = '';
-        for(let i=0;i<list.length;i++){
-          html += '<li>'+list[i]+'</li>';
-        }
-        $('#linkList').html(html);
-      });
-      // 标签
-      $.get('/admin/getTags', function(data){
-        let list = typeof data === 'string' ? JSON.parse(data) : data;
-        let html = '';
-        for(let i=0;i<list.length;i++){
-          html += '<li>'+list[i]+'</li>';
-        }
-        $('#tagList').html(html);
-      });
-    }
-    $('#addCat').click(function(){
-      let val = $('#newCat').val().trim();
-      if(val) alert('请实现分类添加接口');
-    });
-    $('#addMenu').click(function(){
-      let val = $('#newMenu').val().trim();
-      if(val) alert('请实现菜单添加接口');
-    });
-    $('#addLink').click(function(){
-      let val = $('#newLink').val().trim();
-      if(val) alert('请实现链接添加接口');
-    });
-    $('#addTag').click(function(){
-      let val = $('#newTag').val().trim();
-      if(val) alert('请实现标签添加接口');
-    });
-    // 发布所有文章
-    $('#btnPublish').click(function(){
-      $.get('/admin/publish', function(res){
-        let data = typeof res === 'string' ? JSON.parse(res) : res;
-        alert(data.msg || '已发布');
-      });
-    });
-    // Tab切换时刷新
+    // Tab切换时刷新文章列表
     $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
       if($(e.target).attr('href')==='#list'){
         loadArticleList();
-      }
-      if($(e.target).attr('href')==='#setting'){
-        loadSetting();
       }
     });
     // 页面加载时加载文章列表
