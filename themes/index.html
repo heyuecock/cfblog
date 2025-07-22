@@ -222,6 +222,45 @@
       background: var(--main-color);
       color: #fff;
     }
+    /* 复制按钮样式 */
+    .copy-button {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      padding: 5px 10px;
+      background-color: rgba(0, 0, 0, 0.1);
+      color: #666;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+      opacity: 0;
+      z-index: 10;
+    }
+    pre:hover .copy-button {
+      opacity: 1;
+    }
+    .copy-button.success {
+      background-color: #28a745;
+      color: white;
+    }
+    .copy-button.error {
+      background-color: #dc3545;
+      color: white;
+    }
+    pre {
+      position: relative;
+      overflow: auto;
+      padding: 16px;
+      border-radius: 4px;
+    }
+    pre code {
+      display: block;
+      overflow-x: auto;
+      padding: 0;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    }
     @media (max-width: 900px) {
       .container {
         flex-direction: column;
@@ -316,5 +355,69 @@
   <footer style="text-align:center;color:#aaa;font-size:14px;margin:40px 0 20px 0;">
     {{OPT.copyRight}}
   </footer>
+  <script>
+    // 复制按钮功能
+    document.addEventListener('DOMContentLoaded', function() {
+      const codeBlocks = document.querySelectorAll('pre code');
+      if (codeBlocks.length > 0) {
+        codeBlocks.forEach(function(codeBlock, index) {
+          // 创建复制按钮
+          const copyButton = document.createElement('button');
+          copyButton.className = 'copy-button';
+          copyButton.setAttribute('aria-label', '复制代码');
+          copyButton.innerHTML = '<span>复制</span>';
+          // 为了防止多个代码块id冲突，添加唯一id
+          const preElement = codeBlock.parentNode;
+          preElement.id = 'code-block-' + index;
+          // 添加按钮到pre元素
+          preElement.appendChild(copyButton);
+          // 添加点击事件处理
+          copyButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            let code = codeBlock.textContent || '';
+            const copyText = async () => {
+              try {
+                await navigator.clipboard.writeText(code);
+                copyButton.classList.add('success');
+                copyButton.innerHTML = '<span>已复制!</span>';
+                setTimeout(() => {
+                  copyButton.classList.remove('success');
+                  copyButton.innerHTML = '<span>复制</span>';
+                }, 2000);
+              } catch (err) {
+                copyButton.classList.add('error');
+                copyButton.innerHTML = '<span>复制失败</span>';
+                setTimeout(() => {
+                  copyButton.classList.remove('error');
+                  copyButton.innerHTML = '<span>复制</span>';
+                }, 2000);
+                // 兼容性备用方案
+                const textarea = document.createElement('textarea');
+                textarea.value = code;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                  document.execCommand('copy');
+                  copyButton.classList.remove('error');
+                  copyButton.classList.add('success');
+                  copyButton.innerHTML = '<span>已复制!</span>';
+                } catch (e) {
+                  copyButton.innerHTML = '<span>请手动复制</span>';
+                }
+                document.body.removeChild(textarea);
+                setTimeout(() => {
+                  copyButton.classList.remove('success', 'error');
+                  copyButton.innerHTML = '<span>复制</span>';
+                }, 2000);
+              }
+            };
+            copyText();
+          });
+        });
+      }
+    });
+  </script>
 </body>
-</html>
+</html> 
