@@ -158,6 +158,10 @@
         });
       }
     });
+    // 新建文章按钮
+    $('#btnAddNew').click(function(){
+      $('#myTab a[href="#new"]').tab('show');
+    });
     $('#importFile').change(function(e){
       let file = e.target.files[0];
       if(!file) return;
