@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>设置 - {{OPT.siteName}}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="{{OPT.logo}}">
+  <link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://cdn.staticfile.org/jquery/2.2.4/jquery.min.js"></script>
+  <script src="https://cdn.staticfile.org/twitter-bootstrap/3.4.1/js/bootstrap.min.js"></script>
+  <style>
+    body { background: #f7f8fa; font-family: 'PingFang SC','Microsoft YaHei',Arial,sans-serif; }
+    .container { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 32px 28px; margin-top: 32px; }
+    .panel-title { font-size: 22px; font-weight: 700; color: #007aff; margin-bottom: 24px; }
+    .setting-section { margin-bottom: 32px; }
+    .setting-section h4 { color: #007aff; margin-bottom: 12px; }
+    .list-group-item { display: flex; justify-content: space-between; align-items: center; }
+    .list-group-item .remove-btn { color: #d93026; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel-title">博客设置</div>
+    <div class="setting-section">
+      <h4>分类管理</h4>
+      <ul class="list-group" id="catList">
+        {{#categoryJson}}
+        <li class="list-group-item">{{.}} <span class="remove-btn" data-type="category" data-value="{{.}}">删除</span></li>
+        {{/categoryJson}}
+      </ul>
+      <input type="text" class="form-control" id="newCat" placeholder="新分类名">
+      <button class="btn btn-primary" id="addCat">添加分类</button>
+    </div>
+    <div class="setting-section">
+      <h4>菜单管理</h4>
+      <ul class="list-group" id="menuList">
+        {{#menuJson}}
+        <li class="list-group-item">{{.}} <span class="remove-btn" data-type="menu" data-value="{{.}}">删除</span></li>
+        {{/menuJson}}
+      </ul>
+      <input type="text" class="form-control" id="newMenu" placeholder="新菜单名">
+      <button class="btn btn-primary" id="addMenu">添加菜单</button>
+    </div>
+    <div class="setting-section">
+      <h4>链接管理</h4>
+      <ul class="list-group" id="linkList">
+        {{#linkJson}}
+        <li class="list-group-item">{{.}} <span class="remove-btn" data-type="link" data-value="{{.}}">删除</span></li>
+        {{/linkJson}}
+      </ul>
+      <input type="text" class="form-control" id="newLink" placeholder="新链接名">
+      <button class="btn btn-primary" id="addLink">添加链接</button>
+    </div>
+    <div class="setting-section">
+      <h4>标签管理</h4>
+      <ul class="list-group" id="tagList">
+        {{#tagJson}}
+        <li class="list-group-item">{{.}} <span class="remove-btn" data-type="tag" data-value="{{.}}">删除</span></li>
+        {{/tagJson}}
+      </ul>
+      <input type="text" class="form-control" id="newTag" placeholder="新标签名">
+      <button class="btn btn-primary" id="addTag">添加标签</button>
+    </div>
+  </div>
+  <script>
+    // 示例：添加/删除分类、菜单、链接、标签（需后端接口支持）
+    function saveSetting(type, value, action) {
+      $.ajax({
+        url: '/admin/saveConfig',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify([{name: type, value: value}, {name: 'action', value: action}]),
+        success: function(res){
+          alert('操作成功');
+          location.reload();
+        },
+        error: function(){
+          alert('操作失败');
+        }
+      });
+    }
+    $('#addCat').click(function(){
+      let val = $('#newCat').val().trim();
+      if(val) saveSetting('WidgetCategory', val, 'add');
+    });
+    $('#addMenu').click(function(){
+      let val = $('#newMenu').val().trim();
+      if(val) saveSetting('WidgetMenu', val, 'add');
+    });
+    $('#addLink').click(function(){
+      let val = $('#newLink').val().trim();
+      if(val) saveSetting('WidgetLink', val, 'add');
+    });
+    $('#addTag').click(function(){
+      let val = $('#newTag').val().trim();
+      if(val) saveSetting('WidgetTags', val, 'add');
+    });
+    $('.remove-btn').click(function(){
+      let type = $(this).data('type');
+      let value = $(this).data('value');
+      saveSetting('Widget'+type.charAt(0).toUpperCase()+type.slice(1), value, 'remove');
+    });
+  </script>
+</body>
+</html>
