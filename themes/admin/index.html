@@ -88,7 +88,7 @@
         </div>
         <!-- 新建文章 -->
         <div class="tab-pane fade" id="new">
-          <iframe src="/admin/edit" style="width:100%;height:800px;border:none;border-radius:8px;background:#fff;"></iframe>
+          <iframe src="/admin/edit" style="width:100%;height:1000px;min-height:100vh;border:none;border-radius:8px;background:#fff;"></iframe>
         </div>
         <!-- 设置 -->
         <div class="tab-pane fade" id="setting">
@@ -105,7 +105,8 @@
     // 文章分页与渲染
     function loadArticleList(page=1) {
       $.get('/admin/getList/'+page, function(data){
-        let list = typeof data === 'string' ? JSON.parse(data) : data;
+        let response = typeof data === 'string' ? JSON.parse(data) : data;
+        let list = response.articles;
         let html = '';
         for(let i=0;i<list.length;i++){
           html += '<tr>';
@@ -113,12 +114,57 @@
           html += '<td><a href="/admin/edit/'+list[i].id+'" target="_blank">'+list[i].title+'</a></td>';
           html += '<td>'+(list[i].category && list[i].category[0] ? list[i].category[0] : '')+'</td>';
           html += '<td>'+(list[i].tags ? list[i].tags.join(' ') : '')+'</td>';
-          html += '<td>'+list[i].createDate10+'</td>';
+          html += '<td>'+list[i].createDate.substr(0,10)+'</td>';
           html += '<td><a href="/admin/edit/'+list[i].id+'" target="_blank" style="color:#007aff;">编辑</a> <a href="#" class="delete-article" data-id="'+list[i].id+'" style="color:#d93026;margin-left:10px;">删除</a></td>';
           html += '</tr>';
         }
         $('#articleList').html(html);
+        renderPagination(response.currentPage, response.totalPages);
       });
+    }
+
+    function renderPagination(currentPage, totalPages) {
+      const container = $('#pagination');
+      container.empty();
+
+      if (totalPages <= 1) return;
+
+      // 上一页
+      let prevLi = $('<li><a href="#">&laquo;</a></li>');
+      if (currentPage === 1) {
+        prevLi.addClass('disabled');
+      } else {
+        prevLi.find('a').click(function(e) {
+          e.preventDefault();
+          loadArticleList(currentPage - 1);
+        });
+      }
+      container.append(prevLi);
+
+      // 页码
+      for (let i = 1; i <= totalPages; i++) {
+        let pageLi = $('<li><a href="#">' + i + '</a></li>');
+        if (i === currentPage) {
+          pageLi.addClass('active');
+        }
+        pageLi.find('a').click(function(e) {
+          e.preventDefault();
+          loadArticleList(i);
+        });
+        container.append(pageLi);
+      }
+
+      // 下一页
+      let nextLi = $('<li><a href="#">&raquo;</a></li>');
+      if (currentPage === totalPages) {
+        nextLi.addClass('disabled');
+      } else {
+        nextLi.find('a').click(function(e) {
+          e.preventDefault();
+          loadArticleList(currentPage + 1);
+        });
+      }
+      container.append(nextLi);
     }
     // 全选
     $('#checkAll').on('change', function(){
@@ -129,12 +175,23 @@
       var ids = $('.check-item:checked').map(function(){ return this.value; }).get();
       if(ids.length === 0) return alert('请选择要删除的文章');
       if(confirm('确定要批量删除选中的文章吗？')){
-        var count = 0;
-        ids.forEach(function(id){
-          $.get('/admin/delete/'+id, function(res){
-            count++;
-            if(count === ids.length) loadArticleList();
-          });
+        $.ajax({
+          url: '/admin/batchDelete',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(ids),
+          success: function(res){
+            let data = typeof res === 'string' ? JSON.parse(res) : res;
+            if(data.rst){
+              alert('批量删除成功');
+              loadArticleList();
+            } else {
+              alert('批量删除失败：' + (data.msg || '未知错误'));
+            }
+          },
+          error: function(){
+            alert('批量删除请求失败');
+          }
         });
       }
     });
@@ -193,3 +250,19 @@
   </script>
 </body>
 </html> 
+<script>
+  // CSRF protection: Add CSRF token to all fetch requests
+  const originalFetch = window.fetch;
+  window.fetch = function(url, options) {
+    if (options && options.method && options.method.toUpperCase() !== 'GET') {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+      if (csrfToken) {
+        if (!options.headers) {
+          options.headers = {};
+        }
+        options.headers['x-csrf-token'] = csrfToken;
+      }
+    }
+    return originalFetch(url, options);
+  };
+</script>
