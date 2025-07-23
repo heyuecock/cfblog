@@ -32,7 +32,13 @@
   <script>
     $('#btnPublish').click(function(){
       $.get('/admin/publish', function(res){
-        let data = typeof res === 'string' ? JSON.parse(res) : res;
+        let data;
+        try {
+          data = typeof res === 'string' ? JSON.parse(res) : res;
+        } catch (e) {
+          alert('发布失败，返回内容不是有效的JSON，可能未登录或服务端异常。');
+          return;
+        }
         alert(data.msg || '已发布');
       });
     });
