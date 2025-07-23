@@ -222,45 +222,6 @@
       background: var(--main-color);
       color: #fff;
     }
-    .card-summary pre {
-      position: relative;
-      background-color: #282c34;
-      color: #abb2bf;
-      padding: 16px;
-      border-radius: 8px;
-      overflow-x: auto;
-      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      margin: 12px 0;
-    }
-    .card-summary pre code {
-      padding: 0;
-      background: none;
-      color: inherit;
-    }
-    .copy-button {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      padding: 5px 10px;
-      background-color: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-      opacity: 0;
-      z-index: 10;
-    }
-    .card-summary pre:hover .copy-button {
-      opacity: 1;
-    }
-    .copy-button.success {
-      background-color: #28a745;
-      color: white;
-    }
     @media (max-width: 900px) {
       .container {
         flex-direction: column;
@@ -355,32 +316,5 @@
   <footer style="text-align:center;color:#aaa;font-size:14px;margin:40px 0 20px 0;">
     {{OPT.copyRight}}
   </footer>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const codeBlocks = document.querySelectorAll('.card-summary pre');
-      if (codeBlocks.length > 0) {
-        codeBlocks.forEach(function(preElement) {
-          const codeText = preElement.querySelector('code').innerText;
-          const copyButton = document.createElement('button');
-          copyButton.className = 'copy-button';
-          copyButton.setAttribute('aria-label', '复制代码');
-          copyButton.innerHTML = '<span>复制</span>';
-          preElement.appendChild(copyButton);
-          
-          copyButton.addEventListener('click', function(e) {
-            e.stopPropagation(); // 防止点击复制按钮时触发卡片链接跳转
-            navigator.clipboard.writeText(codeText).then(function() {
-              copyButton.classList.add('success');
-              copyButton.innerHTML = '<span>已复制!</span>';
-              setTimeout(() => {
-                copyButton.classList.remove('success');
-                copyButton.innerHTML = '<span>复制</span>';
-              }, 2000);
-            });
-          });
-        });
-      }
-    });
-  </script>
 </body>
 </html> 
